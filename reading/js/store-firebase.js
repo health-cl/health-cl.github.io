@@ -28,6 +28,10 @@ function flatten(obj, prefix, out = {}) {
   return out;
 }
 
+// Invite keys: the lower-cased address with '.' replaced by ',' (the database's security rules compute the same key).
+export function emailKey(email) { return String(email).trim().toLowerCase().replaceAll('.', ','); }
+export const EMAIL_RE = /^[^\s@#$\[\]\/]+@[^\s@#$\[\]\/]+\.[^\s@#$\[\]\/]+$/;
+
 export async function createFirebaseStore(firebaseConfig, { emulator = false, appName } = {}) {
   const [{ initializeApp }, authMod, dbMod] = await Promise.all([
     import(`${SDK}/firebase-app.js`),
@@ -53,10 +57,31 @@ export async function createFirebaseStore(firebaseConfig, { emulator = false, ap
   let user = null;
   const val = async (path) => { const s = await get(ref(db, `${ROOT}/${path}`)); return s.exists() ? s.val() : null; };
 
+  // Pre-approval: an admin invites an email address into a session; the first sign-in with that verified address
+  // claims it (access, slot holder, the session's case list, and the invite marked claimed, in one update).
+  async function claimInvite(u) {
+    if (!u?.email || !u.emailVerified) return null;
+    const key = emailKey(u.email);
+    const inv = await val(`invites/${key}`).catch(() => null);
+    if (!inv || inv.claimedBy || !inv.slot) return null;
+    const rows = await val(`slots/${inv.slot}`);
+    if (!rows) return null;
+    const acc = { role: 'rater', slot: inv.slot, approvedBy: inv.invitedBy, approvedAt: serverTimestamp(), via: 'invite' };
+    await update(ref(db, ROOT), {
+      [`access/${u.uid}`]: acc,
+      [`slotHolders/${inv.slot}`]: u.uid,
+      [`assignments/${u.uid}`]: rows,
+      [`invites/${key}/claimedBy`]: u.uid,
+      [`invites/${key}/claimedAt`]: serverTimestamp(),
+    });
+    return val(`access/${u.uid}`);
+  }
+
   // Role comes from the database, set by a study admin in the browser: /admins/{uid} or /access/{uid}.
   async function describe(u) {
     if (!u) return null;
-    const [adm, acc] = await Promise.all([val(`admins/${u.uid}`).catch(() => null), val(`access/${u.uid}`).catch(() => null)]);
+    let [adm, acc] = await Promise.all([val(`admins/${u.uid}`).catch(() => null), val(`access/${u.uid}`).catch(() => null)]);
+    if (!adm && !acc) acc = await claimInvite(u).catch((e) => { console.warn('invite claim failed', e?.message); return null; });
     return { uid: u.uid, email: u.email, name: u.displayName || '', emailVerified: u.emailVerified,
       role: adm ? 'admin' : (acc?.role || null), slot: acc?.slot || null };
   }
@@ -174,8 +199,8 @@ export async function createFirebaseStore(firebaseConfig, { emulator = false, ap
     },
 
     async adminOverview() {
-      const [annotators, access, assignments, progress, problems, slots, slotHolders] = await Promise.all(
-        ['annotators', 'access', 'assignments', 'progress', 'problems', 'slots', 'slotHolders'].map((p) => val(p)));
+      const [annotators, access, assignments, progress, problems, slots, slotHolders, invites] = await Promise.all(
+        ['annotators', 'access', 'assignments', 'progress', 'problems', 'slots', 'slotHolders', 'invites'].map((p) => val(p)));
       const rows = Object.keys(annotators || {}).map((uid) => {
         const prog = progress?.[uid] || {};
         const asg = assignments?.[uid] || {};
@@ -190,7 +215,8 @@ export async function createFirebaseStore(firebaseConfig, { emulator = false, ap
           problems: Object.keys(problems?.[uid] || {}).length,
         };
       });
-      return { rows, slots: Object.keys(slots || {}).sort(), slotHolders: slotHolders || {} };
+      return { rows, slots: Object.keys(slots || {}).sort(), slotHolders: slotHolders || {},
+        invites: Object.entries(invites || {}).map(([key, v]) => ({ key, ...v })).sort((x, y) => (x.invitedAt || 0) - (y.invitedAt || 0)) };
     },
     async adminApprove(uid, role, slot) {
       const upd = {};
@@ -203,6 +229,27 @@ export async function createFirebaseStore(firebaseConfig, { emulator = false, ap
         upd[`assignments/${uid}`] = rows;
         upd[`slotHolders/${slot}`] = uid;
       }
+      await update(ref(db, ROOT), upd);
+    },
+    async adminInvite(email, slot) {
+      const e = String(email).trim().toLowerCase();
+      if (!EMAIL_RE.test(e)) throw new Error(`Not an email address: ${email}`);
+      const key = emailKey(e);
+      const [inv, holder, rows] = await Promise.all([val(`invites/${key}`), val(`slotHolders/${slot}`), val(`slots/${slot}`)]);
+      if (inv) throw new Error(`${e} is already pre-approved.`);
+      if (!rows) throw new Error(`Session ${slot} has no cases.`);
+      if (holder) throw new Error(`Session ${slot} is already taken.`);
+      await update(ref(db, ROOT), {
+        [`invites/${key}`]: { email: e, slot, invitedBy: user.email, invitedAt: serverTimestamp() },
+        [`slotHolders/${slot}`]: `invite:${key}`,
+      });
+    },
+    async adminCancelInvite(key) {
+      const inv = await val(`invites/${key}`);
+      if (!inv) return;
+      const upd = { [`invites/${key}`]: null };
+      // An unused invite frees its session; a used one leaves the reader's access in place.
+      if (!inv.claimedBy && (await val(`slotHolders/${inv.slot}`)) === `invite:${key}`) upd[`slotHolders/${inv.slot}`] = null;
       await update(ref(db, ROOT), upd);
     },
     async adminRevoke(uid) {

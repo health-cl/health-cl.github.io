@@ -150,10 +150,15 @@ export function createDemoStore() {
         submitted: Object.entries(progress).filter(([cid, p]) => p.state === 'submitted' && !assignments[cid]?.practice).length,
         problems: load('problems', []).length,
       }];
-      return { rows, slots: ['R1', 'R2'], slotHolders: approved[DEMO_UID]?.slot ? { [approved[DEMO_UID].slot]: DEMO_UID } : {} };
+      const invites = Object.entries(load('invites', {})).map(([key, v]) => ({ key, ...v }));
+      const slotHolders = approved[DEMO_UID]?.slot ? { [approved[DEMO_UID].slot]: DEMO_UID } : {};
+      for (const i of invites) slotHolders[i.slot] = `invite:${i.key}`;
+      return { rows, slots: ['R1', 'R2', 'R3'], slotHolders, invites };
     },
     async adminApprove(uid, role, slot) { save('approved', { [uid]: { role, slot, approvedBy: 'you@example.org' } }); },
     async adminRevoke(uid) { const a = load('approved', {}); a[uid] = null; save('approved', a); },
+    async adminInvite(email, slot) { const inv = load('invites', {}); inv[email.toLowerCase().replaceAll('.', ',')] = { email: email.toLowerCase(), slot, invitedBy: 'you@example.org', invitedAt: Date.now() }; save('invites', inv); },
+    async adminCancelInvite(key) { const inv = load('invites', {}); delete inv[key]; save('invites', inv); },
   };
   return store;
 }

@@ -4,7 +4,7 @@ import { GUIDELINES_VERSION, PROFILE_SECTIONS, validateProfile } from './schema.
 import { renderSignIn } from './views/signin.js';
 import { renderProfile } from './views/profile.js';
 import { renderGuidelines } from './views/guidelines.js';
-import { renderQueue } from './views/queue.js';
+import { renderQueue, openNext } from './views/queue.js';
 import { renderCase } from './views/case.js';
 import { renderNote } from './views/note.js';
 import { renderAdjQueue, renderAdjCase } from './views/adjudicate.js';
@@ -98,6 +98,7 @@ async function route() {
 
   const role = state.user.role || 'pending';
   switch (page) {
+    case 'start': return openNext(ctx);
     case 'profile': return renderProfile(main, ctx);
     case 'guidelines': return renderGuidelines(main, ctx);
     case 'case': return role === 'rater' || role === 'admin' ? renderCase(main, ctx, decodeURIComponent(arg || '')) : go('');
@@ -137,9 +138,9 @@ function renderShell() {
   mount(root(),
     DEMO ? demoBanner() : null,
     h('header', { class: 'topbar' },
-      h('div', { class: 'brand' },
-        h('span', { class: 'brand-mark', 'aria-hidden': 'true' }, 'Rx'),
-        h('span', { class: 'brand-name' }, state.config.studyTitle || 'Clinician reading'),
+      h('a', { class: 'brand', href: '#/' },
+        h('span', { class: 'brand-mark', 'aria-hidden': 'true' }, 'H'),
+        h('span', { class: 'brand-name' }, 'Health-CL Annotation'),
       ),
       u ? h('nav', { class: 'nav', 'aria-label': 'Main' },
         links.map(([p, label]) => h('a', { href: `#/${p}`, class: `nav-link${(current === p || (p === '' && current === 'case')) ? ' is-active' : ''}` }, label))) : null,
@@ -151,8 +152,8 @@ function renderShell() {
     ),
     h('main', { id: 'main', class: 'main', tabindex: '-1' }),
     h('footer', { class: 'footer' },
-      h('span', {}, `Guidelines ${state.config.guidelinesVersion || GUIDELINES_VERSION}`),
       h('span', {}, state.config.contact ? `Questions: ${state.config.contact}` : ''),
+      h('span', {}, `Guidelines ${state.config.guidelinesVersion || GUIDELINES_VERSION}`),
     ),
   );
   renderStatus();
@@ -162,7 +163,7 @@ function renderStatus() {
   const el = document.getElementById('conn');
   if (!el) return;
   el.className = `conn ${state.online ? 'conn-on' : 'conn-off'}`;
-  el.textContent = state.online ? 'Connected' : 'Offline: answers will sync when you reconnect';
+  el.textContent = state.online ? 'Online' : 'Offline: answers will sync when you reconnect';
 }
 
 function demoBanner() {

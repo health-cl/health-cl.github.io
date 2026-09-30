@@ -28,7 +28,7 @@ function flatten(obj, prefix, out = {}) {
   return out;
 }
 
-export async function createFirebaseStore(firebaseConfig, { emulator = false } = {}) {
+export async function createFirebaseStore(firebaseConfig, { emulator = false, appName } = {}) {
   const [{ initializeApp }, authMod, dbMod] = await Promise.all([
     import(`${SDK}/firebase-app.js`),
     import(`${SDK}/firebase-auth.js`),
@@ -40,7 +40,7 @@ export async function createFirebaseStore(firebaseConfig, { emulator = false } =
   } = authMod;
   const { getDatabase, ref, get, update, push, serverTimestamp, onValue, connectDatabaseEmulator } = dbMod;
 
-  const app = initializeApp(firebaseConfig);
+  const app = appName ? initializeApp(firebaseConfig, appName) : initializeApp(firebaseConfig);  // appName: tests only
   const auth = getAuth(app);
   const db = getDatabase(app);
   if (emulator) {
@@ -97,6 +97,8 @@ export async function createFirebaseStore(firebaseConfig, { emulator = false } =
     },
     // Approval by a study admin is the access gate.
     async getVerification(uid) { const a = await val(`access/${uid}`); return a ? { verified: true, ...a } : null; },
+    // Live approval: calls cb(access or null) now and on every change; returns the unsubscribe function.
+    watchAccess(uid, cb) { return onValue(ref(db, `${ROOT}/access/${uid}`), (snap) => cb(snap.exists() ? snap.val() : null), () => cb(null)); },
     async getGuidelinesStatus(uid) { return val(`annotators/${uid}/guidelines`); },
     async saveGuidelinesStatus(uid, status) {
       const s = { ...status };

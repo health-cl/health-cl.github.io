@@ -1,17 +1,18 @@
 import { h, mount, toast } from '../dom.js';
-import { PROFILE_SECTIONS, visibleFields, validateField, validateProfile, sectionComplete } from '../schema.js';
+import { PROFILE_SECTIONS, visibleFields, validateField, validateProfile } from '../schema.js';
+import { stepper } from './stepper.js';
 
-// One page, sections in order, a progress rail on the left. The form is built once; each field
-// updates its own error text and conditional fields are shown or hidden in place, so typing and
-// tabbing are never interrupted. A draft is saved on every change.
+// One card, two columns. The form is built once; each field updates its own error text and conditional
+// fields are shown or hidden in place, so typing and tabbing are never interrupted. A draft is saved on every change.
 export function renderProfile(main, ctx) {
   const { store, state, go, reload } = ctx;
   const values = { ...(state.profile || {}) };
+  // Profiles saved before the form was shortened had separate name fields; start from those or the Google name.
+  if (!values.fullName) values.fullName = [values.givenName, values.familyName].filter(Boolean).join(' ') || state.user.name || '';
   const touched = new Set();
-  const fieldEls = {};   // id -> { wrap, err, f }
-  const railItems = {};  // section id -> li
+  const fieldEls = {};
   let saveTimer = null;
-  const firstTime = !state.profile?.completedAt;
+  const firstTime = !state.profile?.completedAt || !state.profile?.fullName;
   const status = h('span', { class: 'save-state', role: 'status' });
 
   function draftSave() {
@@ -37,10 +38,6 @@ export function renderProfile(main, ctx) {
     for (const s of PROFILE_SECTIONS) {
       const vis = new Set(visibleFields(s, values).map((f) => f.id));
       for (const f of s.fields) if (fieldEls[f.id]) fieldEls[f.id].wrap.hidden = !vis.has(f.id);
-      const li = railItems[s.id];
-      const done = sectionComplete(s, values);
-      li.classList.toggle('done', done);
-      li.querySelector('.rail-num').textContent = done ? '✓' : String(PROFILE_SECTIONS.indexOf(s) + 1);
     }
   }
 
@@ -66,8 +63,6 @@ export function renderProfile(main, ctx) {
         control = h('select', { ...common, onchange: (e) => set(f.id, e.target.value, { validate: true }) },
           h('option', { value: '' }, 'Select…'),
           f.options.map((o) => h('option', { value: o, selected: values[f.id] === o }, o)));
-      } else if (f.type === 'textarea') {
-        control = h('textarea', { ...common, rows: 3, oninput: (e) => set(f.id, e.target.value), onblur: (e) => set(f.id, e.target.value.trim(), { validate: true }) }, values[f.id] || '');
       } else {
         const num = f.type === 'number';
         const parse = (v) => (num ? (v === '' ? '' : Number(v)) : v);
@@ -79,8 +74,7 @@ export function renderProfile(main, ctx) {
         });
       }
       wrap = h('div', { class: 'field', dataset: { field: f.id } },
-        h('label', { for: id }, f.label, f.required ? null : h('span', { class: 'optional' }, ' (optional)'),
-          f.pub ? h('span', { class: 'tag tag-pub', title: 'May appear in the paper with your consent' }, 'publication') : null),
+        h('label', { for: id }, f.label, f.required ? h('span', { class: 'req', 'aria-hidden': 'true' }, '*') : h('span', { class: 'optional' }, ' (optional)')),
         control,
         f.hint ? h('p', { class: 'field-hint', id: `${id}-hint` }, f.hint) : null,
         errEl);
@@ -89,32 +83,27 @@ export function renderProfile(main, ctx) {
     return wrap;
   }
 
-  const rail = h('ol', { class: 'rail' }, PROFILE_SECTIONS.map((s, i) => {
-    const li = h('li', {}, h('a', { href: `#sec-${s.id}`, onclick: (e) => { e.preventDefault(); document.getElementById(`sec-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
-      h('span', { class: 'rail-num' }, String(i + 1)), s.title));
-    railItems[s.id] = li;
-    return li;
-  }));
+  const email = h('div', { class: 'field' },
+    h('label', { for: 'f-email' }, 'Email'),
+    h('input', { id: 'f-email', type: 'text', value: state.user.email || '', readonly: true, tabindex: '-1' }));
 
-  const form = h('form', { class: 'profile-form', novalidate: true, onsubmit: onSubmit },
-    PROFILE_SECTIONS.map((s) => h('fieldset', { class: 'card section', id: `sec-${s.id}` },
-      h('legend', {}, s.title),
-      h('p', { class: 'why' }, s.why),
-      h('div', { class: 'fields' }, s.fields.map(field)))),
-    h('div', { class: 'form-actions' },
+  const [about, conf] = PROFILE_SECTIONS;
+  const form = h('form', { class: 'onboard-card', novalidate: true, onsubmit: onSubmit },
+    h('header', {},
+      h('h1', {}, 'Your profile'),
+      h('p', { class: 'lede' }, 'About 2 minutes. The paper reports readers only as counts (specialty, position, years, country); ratings are anonymous.')),
+    h('div', { class: 'sec-label' }, about.title),
+    h('div', { class: 'fields' }, about.fields[0] ? field(about.fields[0]) : null, email, about.fields.slice(1).map(field)),
+    h('div', { class: 'sec-label' }, conf.title),
+    h('div', { class: 'fields' }, conf.fields.map(field)),
+    h('div', { class: 'actions-end' },
       status,
-      h('button', { class: 'btn btn-primary', type: 'submit' }, firstTime ? 'Save and continue to guidelines' : 'Save profile')));
+      h('button', { class: 'btn btn-primary', type: 'submit' }, firstTime ? 'Next: guidelines →' : 'Save')));
 
   async function onSubmit(e) {
     e.preventDefault();
     PROFILE_SECTIONS.forEach((s) => s.fields.forEach((f) => { touched.add(f.id); showError(f.id); }));
-    const errors = validateProfile(values);
-    // Cross-field errors (signature must match the name) are not caught by single-field checks.
-    for (const [id, msg] of Object.entries(errors)) {
-      const fe = fieldEls[id];
-      if (fe && !fe.err.textContent) { fe.err.textContent = msg; fe.err.hidden = false; fe.wrap.classList.add('has-error'); }
-    }
-    const ids = Object.keys(errors);
+    const ids = Object.keys(validateProfile(values));
     if (ids.length) {
       const first = fieldEls[ids[0]]?.wrap;
       first?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -132,11 +121,5 @@ export function renderProfile(main, ctx) {
   }
 
   refreshDerived();
-  mount(main,
-    h('section', { class: 'page' },
-      h('div', { class: 'page-head' },
-        h('p', { class: 'eyebrow' }, firstTime ? 'Step 1 of 3' : 'Your profile'),
-        h('h1', {}, 'About you'),
-        h('p', { class: 'lede' }, 'We report who read the cases, credit you as you choose, and confirm your data access. Fields marked "publication" may appear in the paper with your consent; the rest are reported only as counts.')),
-      h('div', { class: 'with-rail' }, h('aside', { class: 'rail-wrap', 'aria-label': 'Sections' }, rail), form)));
+  mount(main, h('section', { class: 'onboard' }, firstTime ? stepper(1) : null, form));
 }

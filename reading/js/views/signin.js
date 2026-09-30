@@ -1,22 +1,42 @@
 import { h, mount, toast } from '../dom.js';
+import { stepper } from './stepper.js';
+
+const SVG = 'http://www.w3.org/2000/svg';
+// Google "G" mark for the sign-in button (built with the SVG namespace; no HTML strings).
+function googleMark() {
+  const svg = document.createElementNS(SVG, 'svg');
+  svg.setAttribute('viewBox', '0 0 48 48');
+  svg.setAttribute('aria-hidden', 'true');
+  for (const [fill, d] of [
+    ['#EA4335', 'M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z'],
+    ['#4285F4', 'M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z'],
+    ['#FBBC05', 'M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z'],
+    ['#34A853', 'M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z'],
+  ]) {
+    const p = document.createElementNS(SVG, 'path');
+    p.setAttribute('fill', fill);
+    p.setAttribute('d', d);
+    svg.appendChild(p);
+  }
+  return svg;
+}
 
 export function renderSignIn(main, { store }) {
   mount(main,
-    h('section', { class: 'page narrow signin' },
-      h('p', { class: 'eyebrow' }, 'Clinician reading study'),
-      h('h1', {}, 'Sign in to read cases'),
-      h('p', { class: 'lede' }, 'You will judge the initial emergency department orders an AI agent placed for simulated patients, as the emergency physician would when those orders are placed.'),
-      h('ol', { class: 'steps' },
-        h('li', {}, h('b', {}, 'Profile'), h('span', {}, 'about 3 minutes')),
-        h('li', {}, h('b', {}, 'Guidelines and a 3-question check'), h('span', {}, 'about 10 minutes')),
-        h('li', {}, h('b', {}, 'Approval by the study team'), h('span', {}, 'usually the same day')),
-        h('li', {}, h('b', {}, 'Your session: 1 practice case, 14 cases, 3 note pairs'), h('span', {}, 'about 2 hours; stop and resume any time'))),
-      h('div', { class: 'card signin-card' },
-        h('button', { class: 'btn btn-primary btn-block btn-lg', type: 'button', onclick: async () => {
+    h('section', { class: 'onboard' },
+      stepper(0),
+      h('div', { class: 'onboard-card signin-card' },
+        h('header', {},
+          h('h1', {}, 'Health-CL Annotation'),
+          h('p', { class: 'lede' }, 'Physicians review the initial emergency department orders that AI agents placed for simulated patients.')),
+        h('ul', { class: 'meta-list' },
+          h('li', {}, 'About 2 hours'),
+          h('li', {}, 'Stop and resume any time'),
+          h('li', {}, 'Answers save automatically')),
+        h('button', { class: 'btn btn-google btn-lg', type: 'button', onclick: async () => {
           try { await store.signInWithGoogle(); } catch (err) {
             if (err?.code !== 'auth/popup-closed-by-user') toast(`Sign-in failed: ${err.message}`, 'error');
           }
-        } }, 'Sign in with Google')),
-      h('p', { class: 'fine' }, 'Only readers approved by the study team can open cases.'),
-    ));
+        } }, googleMark(), 'Sign in with Google'),
+        h('p', { class: 'note-muted' }, 'By invitation. The study team approves each account.'))));
 }

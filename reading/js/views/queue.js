@@ -1,21 +1,42 @@
 import { h, mount, toast } from '../dom.js';
 import { isNoteId } from './note.js';
+import { stepper } from './stepper.js';
+
+// Open the reader's next unsubmitted item (practice first, then cases, then note pairs), or the list when none is left.
+export async function openNext(ctx) {
+  const { store, state, go } = ctx;
+  if (!state.verification?.verified) return go('');
+  const [assignments, progress] = await Promise.all([store.getAssignments(state.user.uid), store.getProgress(state.user.uid)]);
+  const next = assignments.find((a) => (progress[a.caseId]?.state || 'new') !== 'submitted');
+  return go(next ? `${isNoteId(next.caseId) ? 'note' : 'case'}/${encodeURIComponent(next.caseId)}` : '');
+}
 
 export async function renderQueue(main, ctx) {
   const { store, state, go } = ctx;
   mount(main, h('section', { class: 'page' }, h('p', { class: 'muted' }, 'Loading your cases…')));
 
   if (!state.verification?.verified) {
-    mount(main, h('section', { class: 'page narrow' },
-      h('p', { class: 'eyebrow' }, 'Step 3 of 3'),
-      h('h1', {}, 'Waiting for approval'),
-      h('p', { class: 'lede' }, 'Your profile and guidelines are complete. Your cases appear here as soon as the study team approves you.'),
-      h('div', { class: 'card kv' },
-        h('div', {}, h('span', {}, 'Signed in as'), h('b', {}, state.user.email)),
-        h('div', {}, h('span', {}, 'Status'), h('b', {}, 'Waiting for the study team'))),
-      h('div', { class: 'row' },
-        h('button', { class: 'btn btn-secondary', type: 'button', onclick: async () => { await ctx.reload(); go(''); } }, 'Check again'),
-        h('a', { class: 'btn btn-ghost', href: '#/guidelines' }, 'Review guidelines'))));
+    const status = h('div', { class: 'wait-state', role: 'status' }, h('span', { class: 'pulse', 'aria-hidden': 'true' }),
+      h('span', {}, 'Waiting for the study team to approve your account.'));
+    mount(main, h('section', { class: 'onboard' },
+      stepper(3),
+      h('div', { class: 'onboard-card' },
+        h('header', {},
+          h('h1', {}, 'You are all set'),
+          h('p', { class: 'lede' }, 'Your profile and guidelines are done. The study team approves each account, usually the same day. Your first case opens here as soon as you are approved; you can also close this page and come back later.')),
+        status,
+        h('div', { class: 'kv' }, h('div', {}, h('span', {}, 'Signed in as'), h('b', {}, state.user.email))),
+        h('div', { class: 'actions-end' }, h('a', { class: 'btn btn-ghost', href: '#/guidelines' }, 'Review guidelines')))));
+    if (store.watchAccess) {
+      const stop = store.watchAccess(state.user.uid, async (acc) => {
+        if (!acc) return;
+        stop?.();
+        await ctx.reload();
+        toast('You are approved. Opening your first case.', 'ok');
+        openNext(ctx);
+      });
+      ctx.setCleanup(() => stop?.());
+    }
     return;
   }
 

@@ -8,13 +8,12 @@ export async function renderAdmin(main, ctx) {
   const { rows, slots, slotHolders } = await store.adminOverview();
   const holderOf = (slot) => slotHolders[slot];
   const slotName = (s) => (/^session\d+$/.test(s) ? `Session ${s.slice(7)}` : `Slot ${s}`);
-  const name = (p) => (p ? `${p.givenName || ''} ${p.familyName || ''}`.trim() || '—' : '—');
-  const attested = (p) => !!p && p.agreeDataUse === true && p.consentAggregate === true;
+  const name = (p) => (p ? (p.fullName || `${p.givenName || ''} ${p.familyName || ''}`).trim() || '—' : '—');
 
   async function approve(r, choice) {
     const [role, slot] = choice === 'ADJ' ? ['adjudicator', null] : ['rater', choice];
     const ok = await confirmDialog({
-      title: `Approve ${name(r.profile)}`,
+      title: `Approve ${name(r.profile) === '—' ? r.email : name(r.profile)}`,
       body: h('p', {}, `${r.email} `, role === 'rater' ? `receives ${slotName(slot)} and can start at once.` : 'can adjudicate once disagreement sets are built.'),
       confirm: 'Approve',
     });
@@ -37,7 +36,7 @@ export async function renderAdmin(main, ctx) {
         h('span', { class: 'pill pill-done' }, r.access.role === 'adjudicator' ? 'Adjudicator' : slotName(r.access.slot || '')),
         h('button', { class: 'linklike', type: 'button', onclick: () => revoke(r) }, 'Withdraw'));
     }
-    if (!r.profile?.completedAt || !attested(r.profile)) return h('span', { class: 'muted small' }, 'Profile not finished');
+    // Approval can come before the reader finishes the profile and guidelines; cases open only after both.
     const free = slots.filter((s) => !holderOf(s));
     const sel = h('select', { class: 'select-sm', 'aria-label': 'Approve as' },
       free.map((s) => h('option', { value: s }, slotName(s))),

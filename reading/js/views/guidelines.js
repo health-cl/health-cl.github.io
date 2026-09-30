@@ -1,32 +1,23 @@
 import { h, mount, toast } from '../dom.js';
 import { GUIDELINES, CHANGES } from '../guidelines.js';
-import { ORDER_SCALES, HARM_LEVELS, LIKELIHOOD } from '../schema.js';
+import { ORDER_SCALES, HARM_LEVELS } from '../schema.js';
+import { stepper } from './stepper.js';
 
-export function scaleTable(kind, formVersion = 'v2') {
-  if (kind === 'order') {
-    return h('div', { class: 'scale-table', role: 'table', 'aria-label': 'Order rating scale' },
-      ORDER_SCALES[formVersion].map((s) => h('div', { class: 'scale-row', role: 'row' },
-        h('span', { class: `chip chip-${s.cls}`, role: 'cell' }, h('b', {}, s.code === '?' ? 'U' : s.code), ` ${s.label}`),
-        h('span', { role: 'cell' }, s.desc))));
-  }
-  return h('div', { class: 'scale-table', role: 'table', 'aria-label': 'Harm scale' },
-    HARM_LEVELS.map((s, i) => h('div', { class: 'scale-row', role: 'row' },
-      h('span', { class: `chip chip-harm-${i}`, role: 'cell' }, s.label),
-      h('span', { role: 'cell' }, h('span', {}, s.potential), h('span', { class: 'ahrq' }, 'AHRQ: ', h('q', {}, s.ahrq))))),
-    h('div', { class: 'scale-row', role: 'row' },
-      h('span', { class: 'chip chip-unknown', role: 'cell' }, 'Likelihood'),
-      h('span', { role: 'cell' }, LIKELIHOOD.map((l) => l.label).join(' / '))));
+const keyOf = (s) => (s.code === '?' ? 'U' : s.code);
+
+function orderScale(formVersion) {
+  const scale = ORDER_SCALES[formVersion];
+  return [
+    h('div', { class: 'scale-inline' }, scale.map((s) => h('span', { class: `scale-pill chip-${s.cls}` }, h('b', {}, keyOf(s)), s.label))),
+    h('dl', { class: 'scale-defs' }, scale.map((s) => [h('dt', {}, s.label), h('dd', {}, s.short || s.desc)])),
+  ];
 }
 
-function block(b, formVersion) {
-  if (typeof b === 'string') return h('p', {}, b);
-  if (b.list) return h('ul', {}, b.list.map((x) => h('li', {}, x)));
-  if (b.h) return h('h3', {}, b.h);
-  if (b.scale) return scaleTable(b.scale, formVersion);
-  if (b.example) return h('div', { class: 'example' },
-    h('p', { class: 'example-setup' }, b.example.setup),
-    h('p', { class: 'example-answer' }, h('span', { class: 'arrow', 'aria-hidden': 'true' }, '→ '), b.example.answer));
-  return null;
+function harmScale() {
+  return [
+    h('div', { class: 'scale-inline' }, HARM_LEVELS.map((s, i) => h('span', { class: `scale-pill chip-harm-${i}`, title: s.potential }, s.label))),
+    h('p', { class: 'note-muted' }, 'Levels follow the AHRQ Common Formats Harm Scale; each level is defined in the case form.'),
+  ];
 }
 
 export function renderGuidelines(main, ctx) {
@@ -36,33 +27,26 @@ export function renderGuidelines(main, ctx) {
   const passed = state.guidelines?.quizPassedAt && state.guidelines?.version === version;
   const updated = !passed && state.guidelines?.quizPassedAt && state.guidelines?.version !== version;
   const answers = {};
-  const quizBox = h('div', { class: 'quiz' });
+  const quizBox = h('div', { class: 'quiz', id: 'g-quiz' });
   let checked = false;
-
-  // In v1 the scale has no "Harmful"; drop H from the keyboard hint.
-  const sections = GUIDELINES.sections.map((s) => ({
-    ...s,
-    body: formVersion === 'v1' ? s.body.map((b) => (b.list ? { list: b.list.map((x) => x.replace('N, E, X, H or U', 'N, E, X or U')) } : b)) : s.body,
-  }));
+  const byCode = Object.fromEntries(ORDER_SCALES[formVersion].map((s) => [keyOf(s), s]));
 
   function renderQuiz() {
     mount(quizBox,
-      h('h2', {}, 'Check your understanding'),
-      h('p', { class: 'why' }, `${GUIDELINES.quiz.length} questions. Answer all correctly to open the cases; you can retry.`),
+      h('div', { class: 'sec-label' }, `Quick check · ${GUIDELINES.quiz.length} questions`),
       GUIDELINES.quiz.map((q, qi) => {
         const wrong = checked && answers[q.id] !== q.answer;
         return h('fieldset', { class: `quiz-q${checked ? (wrong ? ' is-wrong' : ' is-right') : ''}` },
           h('legend', {}, `${qi + 1}. ${q.q}`),
           q.options.map((o, oi) => h('label', { class: 'radio' },
-            h('input', { type: 'radio', name: q.id, value: String(oi), checked: answers[q.id] === oi, disabled: passed,
+            h('input', { type: 'radio', name: q.id, value: String(oi), checked: passed ? oi === q.answer : answers[q.id] === oi, disabled: passed,
               onchange: () => { answers[q.id] = oi; } }),
             h('span', {}, o))),
           checked ? h('p', { class: wrong ? 'field-error' : 'field-ok' }, wrong ? `Not quite. ${q.why}` : q.why) : null);
       }),
-      passed
-        ? h('p', { class: 'field-ok' }, 'You have completed these guidelines.')
-        : h('div', { class: 'form-actions' },
-          h('button', { class: 'btn btn-primary', type: 'button', onclick: submitQuiz }, 'Check answers')));
+      h('div', { class: 'actions-end' }, passed
+        ? h('a', { class: 'btn btn-primary', href: '#/' }, 'Back to cases')
+        : h('button', { class: 'btn btn-primary', type: 'button', onclick: submitQuiz }, 'Check answers and start →')));
   }
 
   async function submitQuiz() {
@@ -74,30 +58,37 @@ export function renderGuidelines(main, ctx) {
     await store.saveGuidelinesStatus(state.user.uid, { version, attempts, readAt: true, ...(allRight ? { quizPassedAt: true } : {}) });
     if (!allRight) { renderQuiz(); quizBox.querySelector('.is-wrong')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     await reload();
-    toast('Guidelines complete. Your cases are ready.', 'ok');
-    go('');
+    // Approved readers go straight to their first case; others see the waiting page, which opens it on approval.
+    go('start');
   }
 
   renderQuiz();
   mount(main,
-    h('section', { class: 'page' },
-      h('div', { class: 'page-head' },
-        h('p', { class: 'eyebrow' }, passed ? `Guidelines ${version}` : updated ? 'Guidelines updated' : 'Step 2 of 3'),
-        h('h1', {}, 'How to read a case'),
-        updated
-          ? h('div', { class: 'notice' },
-            h('p', {}, h('b', {}, `The guidelines changed since you read version ${state.guidelines.version}. `), 'Please read the changes below and answer the check again. Your submitted cases are not affected.'),
-            h('ul', {}, (CHANGES[version] || ['See the sections below.']).map((c) => h('li', {}, c))))
-          : h('p', { class: 'lede' }, 'Please read this once in full. It stays available from the menu while you work.')),
-      h('div', { class: 'with-rail' },
-        h('aside', { class: 'rail-wrap', 'aria-label': 'Contents' },
-          h('ol', { class: 'rail' }, sections.map((s, i) => h('li', {},
-            h('a', { href: `#g-${s.id}`, onclick: (e) => { e.preventDefault(); document.getElementById(`g-${s.id}`)?.scrollIntoView({ behavior: 'smooth' }); } },
-              h('span', { class: 'rail-num' }, String(i + 1)), s.title))),
-          h('li', {}, h('a', { href: '#g-quiz', onclick: (e) => { e.preventDefault(); quizBox.scrollIntoView({ behavior: 'smooth' }); } },
-            h('span', { class: 'rail-num' }, String(sections.length + 1)), 'Check your understanding')))),
-        h('div', { class: 'prose' },
-          sections.map((s) => h('article', { class: 'card section', id: `g-${s.id}` },
-            h('h2', {}, s.title), s.body.map((b) => block(b, formVersion)))),
-          h('article', { class: 'card section', id: 'g-quiz' }, quizBox)))));
+    h('section', { class: 'onboard' },
+      passed ? null : stepper(2),
+      h('article', { class: 'onboard-card prose' },
+        h('header', {},
+          h('h1', {}, 'Guidelines'),
+          updated
+            ? h('div', { class: 'notice' },
+              h('p', {}, h('b', {}, `Updated since version ${state.guidelines.version}. `), 'Please answer the check again; your submitted cases are not affected.'),
+              h('ul', {}, (CHANGES[version] || []).map((c) => h('li', {}, c))))
+            : h('p', { class: 'lede' }, passed ? 'Available here while you work.' : 'About 5 minutes, then a 3-question check.')),
+        h('div', { class: 'sec-label' }, 'The task'),
+        h('p', {}, GUIDELINES.task),
+        h('div', { class: 'sec-label' }, 'What you rate'),
+        h('ol', { class: 'g-list' }, GUIDELINES.rate.map((r) => h('li', {},
+          h('div', {}, h('h3', {}, r.title), h('p', {}, r.text),
+            r.scale === 'order' ? orderScale(formVersion) : r.scale === 'harm' ? harmScale() : null)))),
+        h('div', { class: 'sec-label' }, 'Examples (invented patients)'),
+        h('div', { class: 'examples' }, GUIDELINES.examples.map((e) => {
+          const s = byCode[e.code];
+          return h('div', { class: 'ex' }, h('p', {}, e.setup),
+            h('span', { class: `scale-pill chip-${s?.cls || 'unknown'}` }, h('b', {}, e.code), s?.label || e.label));
+        })),
+        h('div', { class: 'sec-label' }, 'Keep in mind'),
+        h('ul', { class: 'rules' }, GUIDELINES.rules.map((r) => h('li', {}, r))),
+        h('div', { class: 'sec-label' }, 'Part 2: note pairs'),
+        h('p', {}, GUIDELINES.notes),
+        quizBox)));
 }

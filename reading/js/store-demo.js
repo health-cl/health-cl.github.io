@@ -60,6 +60,7 @@ export function createDemoStore() {
     async getProfile() { return load('profile', null); },
     async saveProfile(_uid, data) { save('profile', { ...(load('profile', {}) || {}), ...data }); },
     async getVerification() { return { verified: true, note: 'Demo mode: verification is simulated.' }; },
+    watchAccess(uid, cb) { queueMicrotask(() => cb({ role: 'rater' })); return () => {}; },
     async getGuidelinesStatus() { return load('guidelines', null); },
     async saveGuidelinesStatus(_uid, status) { save('guidelines', { ...(load('guidelines', {}) || {}), ...status }); },
 

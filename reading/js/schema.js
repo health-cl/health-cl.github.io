@@ -2,20 +2,20 @@
 // export script all use the same codes. Codes are what is stored; labels are what raters see.
 
 export const APP_VERSION = '1.0.0';
-export const GUIDELINES_VERSION = 'G1.3-draft';
+export const GUIDELINES_VERSION = 'G1.4-draft';
 
 // Per-order rating. v2 = protocol draft section 3 (adds H). v1 = the declared packet form.
 export const ORDER_SCALES = {
   v2: [
-    { code: 'N', key: 'n', label: 'Needed', cls: 'appropriate',
+    { code: 'N', short: 'Needed for this patient now; leaving it out is a loss.', key: 'n', label: 'Needed', cls: 'appropriate',
       desc: 'Needed for this patient now. Leaving it out, as the other workup does, is a loss.' },
-    { code: 'E', key: 'e', label: 'Either way', cls: 'appropriate',
+    { code: 'E', short: 'Reasonable to order and reasonable to omit.', key: 'e', label: 'Either way', cls: 'appropriate',
       desc: 'Reasonable to order and reasonable to omit.' },
-    { code: 'X', key: 'x', label: 'Not indicated', cls: 'not-indicated',
+    { code: 'X', short: 'Low value for this patient; any harm is trivial.', key: 'x', label: 'Not indicated', cls: 'not-indicated',
       desc: 'Low value for this patient: no expected benefit, and any harm is trivial (for example, one more blood test).' },
-    { code: 'H', key: 'h', label: 'Harmful', cls: 'harmful',
+    { code: 'H', short: 'Expected harm outweighs benefit, or contraindicated.', key: 'h', label: 'Harmful', cls: 'harmful',
       desc: 'Harmful or contraindicated for this patient: its expected harm (radiation, contrast, adverse drug effects, a cascade of further tests or treatment) outweighs any benefit, or something shown contraindicates it.' },
-    { code: '?', key: 'u', label: 'Cannot tell', cls: 'unknown',
+    { code: '?', short: 'Cannot be judged from what is shown.', key: 'u', label: 'Cannot tell', cls: 'unknown',
       desc: 'Cannot be judged from what is shown (for example, it depends entirely on a dose, or on information the case does not give).' },
   ],
   v1: [
@@ -70,41 +70,28 @@ export const PREFERENCE = [
   { code: 'none', label: 'No preference' },
 ];
 
-// Profile. `pub` marks fields that appear, with consent, in the paper (author list, acknowledgements
-// or the rater-characteristics table). `aggregate` marks fields reported only as counts.
+// Profile: only what the paper reports about the readers (specialty, position, years and country, as counts) and
+// what the study team needs to reach them. Email comes from the Google account.
 export const COUNTRIES_HINT = 'e.g. United States';
 export const PROFILE_SECTIONS = [
   {
-    id: 'identity', title: 'About you',
-    why: 'Printed as entered if you are acknowledged or listed as an author; background is reported only as counts.',
+    id: 'about', title: 'About you',
     fields: [
-      { id: 'givenName', label: 'Given name(s)', type: 'text', required: true, pub: true, autocomplete: 'given-name' },
-      { id: 'familyName', label: 'Family name', type: 'text', required: true, pub: true, autocomplete: 'family-name' },
-      { id: 'degrees', label: 'Degrees', type: 'text', required: true, pub: true, placeholder: 'e.g. MD, MPH' },
-      { id: 'institution', label: 'Institution', type: 'text', required: true, pub: true, autocomplete: 'organization' },
-      { id: 'country', label: 'Country of practice', type: 'text', required: true, pub: true, placeholder: COUNTRIES_HINT },
-      { id: 'specialty', label: 'Specialty', type: 'select', required: true, aggregate: true,
+      { id: 'fullName', label: 'Full name', type: 'text', required: true, autocomplete: 'name' },
+      { id: 'institution', label: 'Institution', type: 'text', required: true, autocomplete: 'organization' },
+      { id: 'country', label: 'Country of practice', type: 'text', required: true, placeholder: COUNTRIES_HINT },
+      { id: 'specialty', label: 'Specialty', type: 'select', required: true,
         options: ['Emergency medicine', 'Internal medicine', 'Family medicine', 'Critical care medicine', 'General surgery', 'Other'] },
-      { id: 'specialtyOther', label: 'Specialty (if other)', type: 'text', required: true, showIf: { specialty: 'Other' } },
-      { id: 'stage', label: 'Position', type: 'select', required: true, aggregate: true,
+      { id: 'specialtyOther', label: 'Specialty (other)', type: 'text', required: true, showIf: { specialty: 'Other' } },
+      { id: 'stage', label: 'Position', type: 'select', required: true,
         options: ['Attending / consultant', 'Fellow', 'Resident', 'Other'] },
-      { id: 'yearsPractice', label: 'Years in clinical practice (including training)', type: 'number', required: true, min: 0, max: 60, aggregate: true },
-      { id: 'orcid', label: 'ORCID iD', type: 'text', required: false, pub: true, placeholder: '0000-0000-0000-0000',
-        pattern: '^\\d{4}-\\d{4}-\\d{4}-\\d{3}[\\dX]$' },
+      { id: 'yearsPractice', label: 'Years in clinical practice', type: 'number', required: true, min: 0, max: 60, hint: 'Including residency.' },
     ],
   },
   {
-    id: 'publication', title: 'Consent',
-    why: 'The cases come from a restricted clinical database (MIMIC-IV).',
+    id: 'confidentiality', title: 'Confidentiality',
     fields: [
-      { id: 'agreeDataUse', label: 'I will keep the cases confidential: no copying into any online model, translation or search service, no attempt to identify patients, no discussion of cases before all readers finish, and reading on a private device.', type: 'check', required: true },
-      { id: 'consentAggregate', label: 'My ratings may be analysed and published in aggregate, and shared with the study data labelled only as "rater 1", "rater 2" and so on.', type: 'check', required: true },
-      { id: 'credit', label: 'How would you like to be credited?', type: 'select', required: true,
-        options: ['As a co-author, if the authorship criteria are met', 'By name in the Acknowledgements', 'Not named'] },
-      { id: 'competingNone', label: 'Competing interests', type: 'select', required: true,
-        options: ['None', 'I have interests to declare'],
-        hint: 'For example employment, consulting, stock or funding from an AI developer in the past 3 years.' },
-      { id: 'competingText', label: 'Please describe', type: 'textarea', required: true, showIf: { competingNone: 'I have interests to declare' } },
+      { id: 'agreeDataUse', label: 'I will keep the cases confidential: I will not paste them into online tools (AI models, translation or search), not try to identify patients, and not discuss cases with other readers until everyone has finished.', type: 'check', required: true },
     ],
   },
 ];
@@ -123,7 +110,7 @@ export function validateField(f, v) {
     if (f.max !== undefined && n > f.max) return `Must be ${f.max} or less.`;
   }
   if (f.pattern && typeof v === 'string' && !(new RegExp(f.pattern)).test(v.trim())) {
-    return f.id === 'orcid' ? 'Use the form 0000-0000-0000-0000.' : 'Check the format.';
+    return 'Check the format.';
   }
   return null;
 }
@@ -135,11 +122,6 @@ export function validateProfile(values) {
       const e = validateField(f, values[f.id]);
       if (e) errors[f.id] = e;
     }
-  }
-  if (false) {
-    const want = `${values.givenName || ''} ${values.familyName || ''}`.trim().toLowerCase().replace(/\s+/g, ' ');
-    const got = String(values.signature).trim().toLowerCase().replace(/\s+/g, ' ');
-    if (want && got !== want) errors.signature = `Type your name as entered above: ${values.givenName} ${values.familyName}.`;
   }
   return errors;
 }

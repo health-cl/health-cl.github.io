@@ -460,3 +460,15 @@ details.block > summary { cursor: pointer; font-weight: 650; font-size: 1.05rem;
   .scale-defs dd { margin-bottom: 6px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+
+/* guidelines G1.5: rating, meaning, example in one table */
+.g-scale { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: .88rem; }
+.g-scale td { padding: 6px 8px; border-top: 1px solid var(--line-2); vertical-align: middle; color: var(--ink-2); }
+.g-scale tr:first-child td { border-top: 0; }
+.g-scale td:first-child { white-space: nowrap; width: 1%; }
+.g-scale .g-ex { color: var(--muted); font-style: italic; }
+@media (max-width: 720px) {
+  .g-scale, .g-scale tbody, .g-scale tr, .g-scale td { display: block; width: auto; }
+  .g-scale tr { padding: 6px 0; border-top: 1px solid var(--line-2); }
+  .g-scale td { border: 0; padding: 2px 0; }
+}

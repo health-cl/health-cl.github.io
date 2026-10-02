@@ -35,7 +35,14 @@ export function renderSignIn(main, { store }) {
           h('li', {}, 'Answers save automatically')),
         h('button', { class: 'btn btn-google btn-lg', type: 'button', onclick: async () => {
           try { await store.signInWithGoogle(); } catch (err) {
-            if (err?.code !== 'auth/popup-closed-by-user') toast(`Sign-in failed: ${err.message}`, 'error');
+            const msg = {
+              'auth/popup-closed-by-user': 'The Google window closed before sign-in finished. Try again.',
+              'auth/cancelled-popup-request': null,
+              'auth/popup-blocked': 'The browser blocked the Google window. Allow pop-ups for this site, then try again.',
+              'auth/network-request-failed': 'No connection to Google. Check the network, then try again.',
+              'auth/unauthorized-domain': 'This address is not allowed to sign in. Contact the study team.',
+            }[err?.code];
+            if (msg !== null) toast(msg || `Sign-in failed (${err?.code || err?.message}).`, 'error');
           }
         } }, googleMark(), 'Sign in with Google'),
         h('p', { class: 'note-muted' }, 'By invitation. The study team approves each account.'))));

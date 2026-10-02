@@ -96,7 +96,13 @@ export async function createFirebaseStore(firebaseConfig, { emulator = false, ap
       user = await describe(auth.currentUser);
       return user;
     },
-    async signInWithGoogle() { await signInWithPopup(auth, new GoogleAuthProvider()); },
+    async signInWithGoogle() {
+      // Always show Google's account chooser; without it Google silently reuses the account the browser is
+      // already signed in to, so a second account (for example the study team's) can never be picked.
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await signInWithPopup(auth, provider);
+    },
     async sendEmailLink(email) {
       await sendSignInLinkToEmail(auth, email, { url: location.href.split('#')[0], handleCodeInApp: true });
       try { localStorage.setItem('annot:emailForSignIn', email); } catch { /* ignore */ }

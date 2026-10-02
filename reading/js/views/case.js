@@ -260,7 +260,7 @@ export async function renderCase(main, ctx, caseId) {
   function workupCard(w) {
     const wk = ann.workups[w] || {};
     const sel = HARM_LEVELS.find((x) => x.code === wk.harm);
-    const rest = sel ? sel.potential : 'Point at a level to see what it means.';
+    const rest = sel ? sel.potential : 'Choose a level to see what it means.';
     const hint = h('p', { class: 'harm-hint' }, rest);
     const show = (lvl) => () => { hint.textContent = lvl.potential; };
     const back = () => { hint.textContent = rest; };

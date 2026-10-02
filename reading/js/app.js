@@ -140,7 +140,7 @@ function renderShell() {
     h('header', { class: 'topbar' },
       h('a', { class: 'brand', href: '#/' },
         h('span', { class: 'brand-mark', 'aria-hidden': 'true' }, 'H'),
-        h('span', { class: 'brand-name' }, 'Health-CL Annotation'),
+        h('span', { class: 'brand-name' }, 'Health-CL'),
       ),
       u ? h('nav', { class: 'nav', 'aria-label': 'Main' },
         links.map(([p, label]) => h('a', { href: `#/${p}`, class: `nav-link${(current === p || (p === '' && current === 'case')) ? ' is-active' : ''}` }, label))) : null,

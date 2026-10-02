@@ -27,7 +27,7 @@ export function renderSignIn(main, { store }) {
       stepper(0),
       h('div', { class: 'onboard-card signin-card' },
         h('header', {},
-          h('h1', {}, 'Health-CL Annotation'),
+          h('h1', {}, 'Health-CL'),
           h('p', { class: 'lede' }, 'Physicians review the initial emergency department orders that AI agents placed for simulated patients.')),
         h('ul', { class: 'meta-list' },
           h('li', {}, 'About 2 hours'),

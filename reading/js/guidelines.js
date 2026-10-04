@@ -34,5 +34,5 @@ export const GUIDELINES = {
     'Medications are shown by name only, without dose or route. Judge whether the drug is indicated; choose "Cannot tell" only if your answer depends entirely on the dose.',
     'Keep cases confidential. Answers save automatically.',
   ],
-  notes: 'At the end: 3 pairs of short notes an AI agent wrote for itself (about 5 minutes each).',
+  notes: 'At the end: a few pairs of short notes an AI agent wrote for itself (about 5 minutes each).',
 };

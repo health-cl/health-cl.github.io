@@ -122,7 +122,7 @@ export async function renderNote(main, ctx, caseId) {
       submitted = true;
       await store.submitNoteAnnotation(uid, caseId, { activeSeconds: active, comment: ann.comment || '',
         meta: { appVersion: APP_VERSION, guidelinesVersion: state.config.guidelinesVersion || GUIDELINES_VERSION, formVersion: 'v2' } });
-      toast('Submitted.', 'ok'); go('');
+      toast('Submitted.', 'ok'); ctx.next ? ctx.next() : go('');
     } catch (e) { submitted = false; toast(`Could not submit: ${e.message}`, 'error'); }
   }
 

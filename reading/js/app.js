@@ -86,6 +86,7 @@ async function route() {
   const [page, arg] = hash.split('/');
   const forced = gate();
   const ctx = { state, store: state.store, go, reload: reloadUser, setCleanup, demo: DEMO };
+  ctx.next = () => openNext(ctx); // after a submit: the next unsubmitted item, or the list (and the closing questions)
 
   renderShell();
   const main = document.getElementById('main');
@@ -153,7 +154,7 @@ function renderShell() {
     h('main', { id: 'main', class: 'main', tabindex: '-1' }),
     h('footer', { class: 'footer' },
       h('span', {}, state.config.contact ? `Questions: ${state.config.contact}` : ''),
-      h('span', {}, `Guidelines ${state.config.guidelinesVersion || GUIDELINES_VERSION}`),
+      h('span', {}, `Guidelines ${(state.config.guidelinesVersion || GUIDELINES_VERSION).replace(/-draft$/, '')}`),
     ),
   );
   renderStatus();

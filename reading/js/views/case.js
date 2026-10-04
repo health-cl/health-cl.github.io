@@ -359,8 +359,8 @@ export async function renderCase(main, ctx, caseId) {
       submitted = true;
       await store.submitAnnotation(uid, caseId, { activeSeconds: active, comment: ann.comment || '',
         meta: { appVersion: APP_VERSION, guidelinesVersion: state.config.guidelinesVersion || GUIDELINES_VERSION, formVersion: cfg.formVersion } });
-      toast('Submitted.', 'ok');
-      go('');
+      toast('Submitted. Opening the next one.', 'ok');
+      ctx.next ? ctx.next() : go('');
     } catch (e) { submitted = false; toast(`Could not submit: ${e.message}`, 'error'); }
   }
 
@@ -399,7 +399,8 @@ export async function renderCase(main, ctx, caseId) {
       h('div', { class: 'card presentation' }, h('h2', { class: 'card-title' }, 'At arrival'), h('p', {}, caseDoc.presentation)),
 
       h('section', { class: 'block' },
-        h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '1'), 'What each workup learned before ordering'),
+        h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '1'), 'The two conversations before ordering'),
+        h('p', { class: 'block-note' }, 'Anything the patient said in either conversation applies to both workups.'),
         exam ? h('div', { class: 'card exam-shared' }, h('h3', { class: 'card-title' }, 'Physical examination (same in both workups)'), h('p', { class: 'msg-text' }, exam)) : null,
         h('div', { class: 'two-col conv-cols' },
           conversationColumn('A', caseDoc.workups.A.conversation, { compact: true, hideExam: !!exam }),
@@ -416,7 +417,7 @@ export async function renderCase(main, ctx, caseId) {
 
       h('section', { class: 'block' },
         h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '3'), 'Each workup as a whole'),
-        h('p', { class: 'block-note' }, 'If the patient received exactly these orders, including anything important left out.'),
+        h('p', { class: 'block-note' }, 'Suppose the patient received exactly these orders. Rate the worst harm they could plausibly cause, counting anything important left out (even if both workups left it out), and how likely that harm is.'),
         workupsWrap),
 
       h('section', { class: 'block' },

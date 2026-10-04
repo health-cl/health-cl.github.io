@@ -76,6 +76,7 @@ export async function renderQueue(main, ctx) {
 
   const allDone = practiceDone && studyDone && notes.every((a) => stateOf(a) === 'submitted') && assignments.length > 0;
   const debrief = allDone ? await store.getDebrief(state.user.uid) : null;
+  const debriefOpen = allDone && !debrief?.submittedAt;
   function debriefCard() {
     if (!allDone) return null;
     if (debrief?.submittedAt) return h('div', { class: 'card' }, h('h2', { class: 'card-title' }, 'Thank you'), h('p', {}, 'Your session is complete. The study team will be in touch.'));
@@ -84,7 +85,7 @@ export async function renderQueue(main, ctx) {
     const burden = h('select', {}, h('option', { value: '' }, 'Select…'), ['too long', 'about right', 'could do more'].map((b) => h('option', { value: b }, b)));
     const comments = h('textarea', { rows: 2, maxlength: 2000, placeholder: 'Optional.' });
     return h('div', { class: 'card stack-sm' },
-      h('h2', { class: 'card-title' }, 'Last step: three quick questions (1 minute)'),
+      h('h2', { class: 'card-title' }, 'Three quick questions (1 minute)'),
       h('label', {}, 'What do you think this study is testing?', guess),
       h('label', {}, 'How confident are you in your ratings overall?', conf),
       h('label', {}, 'The length of the session was:', burden),
@@ -100,17 +101,17 @@ export async function renderQueue(main, ctx) {
       h('div', { class: 'page-head split' },
         h('div', {},
           h('p', { class: 'eyebrow' }, 'Your cases'),
-          h('h1', {}, practiceDone ? `${submitted} of ${study.length} submitted` : 'Start with the practice cases'),
-          h('p', { class: 'lede' }, practiceDone
+          h('h1', {}, debriefOpen ? 'One last step' : practiceDone ? `${submitted} of ${study.length} submitted` : 'Start with the practice cases'),
+          h('p', { class: 'lede' }, debriefOpen ? 'Everything is submitted. Please answer the short questions below to finish.' : practiceDone
             ? (remainingMin ? `About ${remainingMin < 90 ? `${remainingMin} minutes` : `${Math.round(remainingMin / 6) / 10} hours`} left. Work in order; you can stop at any time and your answers are kept.` : 'Everything is submitted. Thank you.')
             : 'Practice cases use the same form. They are not analysed; they let you get used to the layout before the study cases open.')),
         next ? h('button', { class: 'btn btn-primary btn-lg', type: 'button', onclick: () => go(`${isNoteId(next.caseId) ? 'note' : 'case'}/${encodeURIComponent(next.caseId)}`) },
           stateOf(next) === 'draft' ? 'Continue where you left off' : !practiceDone ? 'Start practice' : isNoteId(next.caseId) ? 'Open next note pair' : 'Open next case') : null),
       study.length ? h('div', { class: 'progress', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(study.length), 'aria-valuenow': String(submitted) },
         h('span', { style: { width: `${study.length ? (100 * submitted) / study.length : 0}%` } })) : null,
+      debriefCard(),
       practice.length ? h('div', { class: 'card' }, h('h2', { class: 'card-title' }, 'Practice'), rows(practice, false)) : null,
       h('div', { class: 'card' }, h('h2', { class: 'card-title' }, 'Study cases'),
         study.length ? rows(study, !practiceDone) : h('p', { class: 'muted' }, 'No study cases are assigned yet.')),
-      notes.length ? h('div', { class: 'card' }, h('h2', { class: 'card-title' }, `Part 2: procedure notes · ${notesDone} of ${notes.length}`), rows(notes, !(practiceDone && studyDone))) : null,
-      debriefCard()));
+      notes.length ? h('div', { class: 'card' }, h('h2', { class: 'card-title' }, `Part 2: procedure notes · ${notesDone} of ${notes.length}`), rows(notes, !(practiceDone && studyDone))) : null));
 }

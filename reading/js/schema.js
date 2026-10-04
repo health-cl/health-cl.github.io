@@ -2,7 +2,7 @@
 // export script all use the same codes. Codes are what is stored; labels are what raters see.
 
 export const APP_VERSION = '1.0.0';
-export const GUIDELINES_VERSION = 'G1.5-draft';
+export const GUIDELINES_VERSION = 'G1.6-draft';
 
 // Per-order rating. v2 = protocol draft section 3 (adds H). v1 = the declared packet form.
 export const ORDER_SCALES = {

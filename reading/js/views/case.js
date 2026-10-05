@@ -121,6 +121,9 @@ export async function renderCase(main, ctx, caseId) {
   const locked = preview || !!ann.submittedAt;
   let submitted = false;
   if (!locked) store.ensureStarted?.(uid, caseId);
+  // Practice cases may carry the study physicians' agreed answers (Amendment C10); shown only after submission.
+  const ref = locked && (preview || asg?.practice) ? caseDoc.reference || null : null;
+  const codeLabel = (code) => (scale.find((x) => x.code === code)?.label || code);
 
   const study = assignments.filter((a) => !a.practice && !isNoteId(a.caseId));
   const practice = assignments.filter((a) => a.practice);
@@ -186,7 +189,9 @@ export async function renderCase(main, ctx, caseId) {
     h('div', { class: 'order-line' },
       h('span', { class: `only only-${w}` }, `${w} only`),
       h('span', { class: 'order-text' }, line.text)),
-    ratingButtons(id));
+    ratingButtons(id),
+    ref?.items?.[id] ? h('p', { class: 'ref-ans' }, `Study physicians: ${codeLabel(ref.items[id].r)}.`,
+      ref.items[id].note ? ` ${ref.items[id].note}` : '') : null);
     rowEls[id] = row;
     return row;
   }
@@ -275,6 +280,7 @@ export async function renderCase(main, ctx, caseId) {
               onchange: () => setWorkup(w, { harm: lvl.code, ...(SERIOUS.has(lvl.code) ? {} : { likelihood: null }) }) }),
             lvl.label)))),
       hint,
+      ref?.workups?.[w]?.harm ? h('p', { class: 'ref-ans' }, `Study physicians: ${HARM_LEVELS.find((x) => x.code === ref.workups[w].harm)?.label || ref.workups[w].harm}.`) : null,
       cfg.likelihood && SERIOUS.has(wk.harm) ? h('div', { class: 'field-row' },
         h('span', { class: 'row-label', id: `lk-l-${w}` }, 'Likelihood'),
         h('div', { class: 'seg', role: 'radiogroup', 'aria-labelledby': `lk-l-${w}` },
@@ -325,7 +331,9 @@ export async function renderCase(main, ctx, caseId) {
           return chk(ok, `Workup ${w}`, () => harmBoxes[w].scrollIntoView({ behavior: 'smooth', block: 'center' }));
         }) : null,
         chk(!!ann.preference, 'Preference', () => prefWrap.scrollIntoView({ behavior: 'smooth', block: 'center' }))),
-      locked
+      locked && ref && !preview
+        ? h('button', { class: 'btn btn-primary', type: 'button', onclick: () => (ctx.next ? ctx.next() : go('')) }, 'Continue →')
+        : locked
         ? h('span', { class: 'pill pill-done' }, preview ? 'Preview only' : 'Submitted')
         : h('button', { class: 'btn btn-primary', type: 'button', disabled: missing.length > 0,
           title: missing.length ? `Still needed: ${missing.join(', ')}` : 'Submit this case', onclick: submit },
@@ -359,6 +367,11 @@ export async function renderCase(main, ctx, caseId) {
       submitted = true;
       await store.submitAnnotation(uid, caseId, { activeSeconds: active, comment: ann.comment || '',
         meta: { appVersion: APP_VERSION, guidelinesVersion: state.config.guidelinesVersion || GUIDELINES_VERSION, formVersion: cfg.formVersion } });
+      if (asg?.practice && caseDoc.reference) {
+        toast('Submitted. The study physicians\' answers are now shown under yours.', 'ok');
+        go(`case/${encodeURIComponent(caseId)}`);
+        return;
+      }
       toast('Submitted. Opening the next one.', 'ok');
       ctx.next ? ctx.next() : go('');
     } catch (e) { submitted = false; toast(`Could not submit: ${e.message}`, 'error'); }
@@ -395,6 +408,8 @@ export async function renderCase(main, ctx, caseId) {
         h('div', { class: 'case-meta' }, saveState,
           h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: reportProblem }, 'Report a problem'))),
       preview ? h('p', { class: 'notice' }, 'Study-team preview. Nothing is saved.') : null,
+      ref ? h('div', { class: 'notice' }, h('p', {}, 'Practice case. The study physicians\' answers are shown under yours. Practice answers are not analysed.'),
+        ref.note ? h('p', {}, ref.note) : null) : null,
 
       h('div', { class: 'card presentation' }, h('h2', { class: 'card-title' }, 'At arrival'), h('p', {}, caseDoc.presentation)),
 

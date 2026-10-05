@@ -28,8 +28,23 @@ function makeCase({ id, practice = false, presentation, conv, orders }) {
       })),
     };
   }
-  return { id, practice, synthetic: true, presentation, workups, items };
+  return { id, practice, synthetic: true, presentation, workups, items, ...(id === 'DEMO-P1' ? { reference: DEMO_P1_REFERENCE } : {}) };
 }
+
+// Invented answers for the demo practice case, in the shape tools/admin.py set-reference writes for a real practice case.
+const DEMO_P1_REFERENCE = {
+  note: 'Morphine (A) and hydromorphone (B) are equivalent: neither is Needed, because the other workup has an equivalent order.',
+  items: {
+    i01: { r: 'E' },
+    i02: { r: 'N', note: 'Ultrasound looks for gallstones in a first episode of pancreatitis.' },
+    i03: { r: 'E' },
+    i04: { r: 'E' },
+    i05: { r: 'X', note: 'Early CT adds little when lipase and the pain already make the diagnosis.' },
+    i06: { r: 'E' },
+    i07: { r: 'H', note: 'No sign of infection; antibiotics are not given to prevent infection in acute pancreatitis.' },
+  },
+  workups: { A: { harm: 'mild' }, B: { harm: 'moderate' } },
+};
 
 export const DEMO_CASES = [
   makeCase({

@@ -482,3 +482,7 @@ details.block > summary { cursor: pointer; font-weight: 650; font-size: 1.05rem;
 .email-link .email-label { font-weight: 500; }
 .or-line { display: flex; align-items: center; gap: 10px; color: var(--muted, #6b7280); font-size: 0.9rem; }
 .study-team-link { justify-self: start; font-size: 0.85rem; color: var(--muted, #6b7280); }
+
+/* Practice feedback (Amendment C10) */
+.ref-ans { margin: 4px 0 0; font-size: .84rem; color: var(--accent); }
+.order-rated .ref-ans { padding-left: 2px; }

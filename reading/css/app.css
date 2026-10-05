@@ -481,3 +481,4 @@ details.block > summary { cursor: pointer; font-weight: 650; font-size: 1.05rem;
 .email-link .email-row input { flex: 1 1 220px; min-width: 0; padding: 10px 12px; border: 1px solid var(--line, #e5e7eb); border-radius: 8px; font: inherit; }
 .email-link .email-label { font-weight: 500; }
 .or-line { display: flex; align-items: center; gap: 10px; color: var(--muted, #6b7280); font-size: 0.9rem; }
+.study-team-link { justify-self: start; font-size: 0.85rem; color: var(--muted, #6b7280); }

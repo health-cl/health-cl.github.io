@@ -472,3 +472,10 @@ details.block > summary { cursor: pointer; font-weight: 650; font-size: 1.05rem;
   .g-scale tr { padding: 6px 0; border-top: 1px solid var(--line-2); }
   .g-scale td { border: 0; padding: 2px 0; }
 }
+
+/* email-link sign-in (2026-10-05) */
+.email-link { display: grid; gap: 10px; }
+.email-link .or-line { display: flex; align-items: center; gap: 10px; color: var(--muted, #6b7280); font-size: 0.9rem; }
+.email-link .or-line::before, .email-link .or-line::after { content: ""; flex: 1; border-top: 1px solid var(--line, #e5e7eb); }
+.email-link .email-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.email-link .email-row input { flex: 1 1 220px; min-width: 0; padding: 10px 12px; border: 1px solid var(--line, #e5e7eb); border-radius: 8px; font: inherit; }

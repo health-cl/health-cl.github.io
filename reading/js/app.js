@@ -32,7 +32,12 @@ async function boot() {
     } else {
       const { createFirebaseStore } = await import('./store-firebase.js');
       state.store = await createFirebaseStore(EMULATOR ? EMULATOR_CONFIG : FIREBASE_CONFIG, { emulator: EMULATOR });
-      await state.store.completeEmailLinkIfPresent(async () => window.prompt('Confirm the email address you used to request the sign-in link'));
+      try {
+        await state.store.completeEmailLinkIfPresent(async () => window.prompt('Confirm the email address you used to request the sign-in link'));
+      } catch (e) {
+        history.replaceState(null, '', location.pathname + location.hash);
+        setTimeout(() => toast('This sign-in link has expired or was already used. Request a new one below.', 'error'), 300);
+      }
     }
   } catch (e) {
     mount(root(), h('main', { class: 'page narrow' }, h('h1', {}, 'Cannot start'), h('p', {}, String(e.message || e))));

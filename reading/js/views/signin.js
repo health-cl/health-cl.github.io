@@ -45,5 +45,29 @@ export function renderSignIn(main, { store }) {
             if (msg !== null) toast(msg || `Sign-in failed (${err?.code || err?.message}).`, 'error');
           }
         } }, googleMark(), 'Sign in with Google'),
+        emailLinkForm(store),
         h('p', { class: 'note-muted' }, 'By invitation. The study team approves each account.'))));
+}
+
+// Sign-in by an emailed link: works for any email address, with no Google window (2026-10-05).
+function emailLinkForm(store) {
+  const input = h('input', { type: 'email', required: true, autocomplete: 'email', placeholder: 'you@hospital.org',
+    'aria-label': 'Email address' });
+  const status = h('p', { class: 'note-muted', role: 'status' });
+  const btn = h('button', { class: 'btn btn-secondary', type: 'submit' }, 'Email me a sign-in link');
+  const form = h('form', { class: 'email-link', onsubmit: async (e) => {
+    e.preventDefault();
+    const email = input.value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('Enter a valid email address.', 'error'); return; }
+    btn.disabled = true;
+    try {
+      await store.sendEmailLink(email);
+      status.textContent = `A sign-in link was sent to ${email}. Open it in this browser to continue. If it is not in your inbox within a few minutes, check the spam folder.`;
+    } catch (err) {
+      toast(`Could not send the link (${err?.code || err?.message}).`, 'error');
+    } finally { btn.disabled = false; }
+  } },
+  h('div', { class: 'or-line' }, h('span', {}, 'or sign in with your email')),
+  h('div', { class: 'email-row' }, input, btn), status);
+  return form;
 }

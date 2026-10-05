@@ -33,6 +33,8 @@ export function renderSignIn(main, { store }) {
           h('li', {}, 'About 2 hours'),
           h('li', {}, 'Stop and resume any time'),
           h('li', {}, 'Answers save automatically')),
+        emailLinkForm(store),
+        h('div', { class: 'or-line' }, h('span', {}, 'or')),
         h('button', { class: 'btn btn-google btn-lg', type: 'button', onclick: async () => {
           try { await store.signInWithGoogle(); } catch (err) {
             const msg = {
@@ -45,7 +47,6 @@ export function renderSignIn(main, { store }) {
             if (msg !== null) toast(msg || `Sign-in failed (${err?.code || err?.message}).`, 'error');
           }
         } }, googleMark(), 'Sign in with Google'),
-        emailLinkForm(store),
         h('p', { class: 'note-muted' }, 'By invitation. The study team approves each account.'))));
 }
 
@@ -67,7 +68,7 @@ function emailLinkForm(store) {
       toast(`Could not send the link (${err?.code || err?.message}).`, 'error');
     } finally { btn.disabled = false; }
   } },
-  h('div', { class: 'or-line' }, h('span', {}, 'or sign in with your email')),
+  h('label', { class: 'email-label' }, 'Sign in with your email address'),
   h('div', { class: 'email-row' }, input, btn), status);
   return form;
 }

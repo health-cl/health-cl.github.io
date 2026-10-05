@@ -1,6 +1,6 @@
 import { h, mount, toast, confirmDialog, fmtDuration } from '../dom.js';
 import { isNoteId } from './note.js';
-import { ORDER_SCALES, HARM_LEVELS, LIKELIHOOD, PREFERENCE, missingForSubmit, APP_VERSION, GUIDELINES_VERSION } from '../schema.js';
+import { ORDER_SCALES, HARM_LEVELS, LIKELIHOOD, SERIOUS, PREFERENCE, missingForSubmit, APP_VERSION, GUIDELINES_VERSION } from '../schema.js';
 
 export const PANEL_ORDER = ['Blood tests', 'Urine tests', 'Microbiology', 'Imaging', 'Procedures', 'Medications'];
 const IDLE_LIMIT_S = 120;
@@ -272,10 +272,10 @@ export async function renderCase(main, ctx, caseId) {
           HARM_LEVELS.map((lvl, i) => h('label', { class: `seg-opt harm-${i}${wk.harm === lvl.code ? ' is-on' : ''}`, title: `AHRQ: ${lvl.ahrq}`,
             onmouseenter: show(lvl), onmouseleave: back, onfocusin: show(lvl), onfocusout: back },
             h('input', { type: 'radio', name: `harm-${w}`, value: lvl.code, checked: wk.harm === lvl.code, disabled: locked,
-              onchange: () => setWorkup(w, { harm: lvl.code, ...(lvl.code === 'none' ? { likelihood: null } : {}) }) }),
+              onchange: () => setWorkup(w, { harm: lvl.code, ...(SERIOUS.has(lvl.code) ? {} : { likelihood: null }) }) }),
             lvl.label)))),
       hint,
-      cfg.likelihood && wk.harm && wk.harm !== 'none' ? h('div', { class: 'field-row' },
+      cfg.likelihood && SERIOUS.has(wk.harm) ? h('div', { class: 'field-row' },
         h('span', { class: 'row-label', id: `lk-l-${w}` }, 'Likelihood'),
         h('div', { class: 'seg', role: 'radiogroup', 'aria-labelledby': `lk-l-${w}` },
           LIKELIHOOD.map((l) => h('label', { class: `seg-opt${wk.likelihood === l.code ? ' is-on' : ''}` },
@@ -321,7 +321,7 @@ export async function renderCase(main, ctx, caseId) {
         chk(rated === nItems, `Orders ${rated}/${nItems}`, () => setCurrent(order.find((id) => !ann.items[id]?.r) || order[0])),
         cfg.harmRequired ? ['A', 'B'].map((w) => {
           const wk = ann.workups[w] || {};
-          const ok = wk.harm && (wk.harm === 'none' || !cfg.likelihood || wk.likelihood);
+          const ok = wk.harm && (!SERIOUS.has(wk.harm) || !cfg.likelihood || wk.likelihood);
           return chk(ok, `Workup ${w}`, () => harmBoxes[w].scrollIntoView({ behavior: 'smooth', block: 'center' }));
         }) : null,
         chk(!!ann.preference, 'Preference', () => prefWrap.scrollIntoView({ behavior: 'smooth', block: 'center' }))),
@@ -400,7 +400,7 @@ export async function renderCase(main, ctx, caseId) {
 
       h('section', { class: 'block' },
         h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '1'), 'The two conversations before ordering'),
-        h('p', { class: 'block-note' }, 'Anything the patient said in either conversation applies to both workups.'),
+        h('p', { class: 'block-note' }, 'What the patient said in either conversation applies to both.'),
         exam ? h('div', { class: 'card exam-shared' }, h('h3', { class: 'card-title' }, 'Physical examination (same in both workups)'), h('p', { class: 'msg-text' }, exam)) : null,
         h('div', { class: 'two-col conv-cols' },
           conversationColumn('A', caseDoc.workups.A.conversation, { compact: true, hideExam: !!exam }),
@@ -417,7 +417,7 @@ export async function renderCase(main, ctx, caseId) {
 
       h('section', { class: 'block' },
         h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '3'), 'Each workup as a whole'),
-        h('p', { class: 'block-note' }, 'Suppose the patient received exactly these orders. Rate the worst harm they could plausibly cause, counting anything important left out (even if both workups left it out), and how likely that harm is.'),
+        h('p', { class: 'block-note' }, 'Worst harm these orders could plausibly cause, counting anything important left out.'),
         workupsWrap),
 
       h('section', { class: 'block' },

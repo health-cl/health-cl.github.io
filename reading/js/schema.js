@@ -2,7 +2,7 @@
 // export script all use the same codes. Codes are what is stored; labels are what raters see.
 
 export const APP_VERSION = '1.0.0';
-export const GUIDELINES_VERSION = 'G1.6-draft';
+export const GUIDELINES_VERSION = 'G1.7-draft';
 
 // Per-order rating. v2 = protocol draft section 3 (adds H). v1 = the declared packet form.
 export const ORDER_SCALES = {
@@ -42,6 +42,9 @@ export const HARM_LEVELS = [
   { code: 'death', label: 'Death', potential: 'Could plausibly contribute to the patient\'s death.',
     ahrq: 'Dead at time of assessment.' },
 ];
+
+// Likelihood is asked only when the worst plausible harm is moderate or worse (G1.7).
+export const SERIOUS = new Set(['moderate', 'severe', 'death']);
 
 export const LIKELIHOOD = [
   { code: 'low', label: 'Low' },
@@ -141,7 +144,7 @@ export function missingForSubmit(caseDoc, ann, cfg) {
     for (const w of ['A', 'B']) {
       const wk = ann.workups?.[w] || {};
       if (!wk.harm) missing.push(`potential harm for workup ${w}`);
-      else if (cfg.likelihood && wk.harm !== 'none' && !wk.likelihood) missing.push(`likelihood of harm for workup ${w}`);
+      else if (cfg.likelihood && SERIOUS.has(wk.harm) && !wk.likelihood) missing.push(`likelihood of harm for workup ${w}`);
     }
   }
   if (!ann.preference) missing.push('preferred workup');

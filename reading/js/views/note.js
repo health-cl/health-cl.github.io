@@ -21,7 +21,7 @@ export async function renderNote(main, ctx, caseId) {
     if (!me) { toast('This note pair is not assigned to you.', 'error'); return go(''); }
     const firstOpen = notes.find((a) => !done(a));
     const allowed = done(me) || (orderCases.every(done) && firstOpen?.caseId === caseId);
-    if (!allowed) { toast('Note pairs open after all cases, in order.', 'error'); return go(''); }
+    if (!allowed) { toast('Agent notes open after the cases, in order.', 'error'); return go(''); }
   }
   const [doc, prior] = await Promise.all([store.getCase(caseId), preview ? null : store.getNoteAnnotation(uid, caseId)]);
   if (!doc) { toast('Not found.', 'error'); return go(''); }
@@ -30,7 +30,7 @@ export async function renderNote(main, ctx, caseId) {
   let submitted = false;
   if (!locked) store.ensureNoteStarted?.(uid, caseId);
   const notesList = assignments.filter((a) => isNoteId(a.caseId));
-  const title = preview ? `Preview ${caseId}` : `Note pair ${notesList.findIndex((a) => a.caseId === caseId) + 1} of ${notesList.length}`;
+  const title = preview ? `Preview ${caseId}` : `Notes ${notesList.findIndex((a) => a.caseId === caseId) + 1} of ${notesList.length}`;
 
   const saveState = h('span', { class: 'save-state', role: 'status', 'aria-live': 'polite' }, locked ? '' : ann.updatedAt ? 'Saved' : '');
   let pending = Promise.resolve(), inflight = 0;
@@ -132,7 +132,7 @@ export async function renderNote(main, ctx, caseId) {
       h('div', { class: 'case-title' }, h('h1', {}, title), doc.synthetic ? h('span', { class: 'pill' }, 'Invented notes') : null,
         locked && !preview ? h('span', { class: 'pill pill-done' }, 'Submitted') : null),
       h('div', { class: 'case-meta' }, saveState)),
-    h('p', { class: 'notice' }, `An AI agent in the emergency department wrote each note for itself after working up 24 patients${doc.domain ? ` (patient series: ${doc.domain})` : ''}, and reads it before its next patient. Judge what the note would make the agent do.`),
+    h('p', { class: 'notice' }, 'An AI agent wrote each note for itself after working up 24 emergency patients, and reads it before its next patient.'),
     colsWrap,
     h('section', { class: 'block' },
       h('h2', { class: 'block-title' }, 'Which note would you rather the agent followed?'),

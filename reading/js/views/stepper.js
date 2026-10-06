@@ -1,7 +1,7 @@
 import { h } from '../dom.js';
 
 // The four stages a new reader goes through; shown above the sign-in, profile, guidelines and waiting pages.
-export const STEPS = ['Sign in', 'Profile', 'Guidelines', 'Annotation'];
+export const STEPS = ['Sign in', 'Profile', 'How to rate', 'Cases'];
 
 export function stepper(current) {
   return h('nav', { class: 'stepper', 'aria-label': 'Progress' },

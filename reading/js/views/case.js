@@ -1,5 +1,6 @@
 import { h, mount, toast, confirmDialog, fmtDuration } from '../dom.js';
 import { isNoteId } from './note.js';
+import { openTutorialDialog } from './tutorial.js';
 import { ORDER_SCALES, HARM_LEVELS, HARM_REASONS, LIKELIHOOD, SERIOUS, PREFERENCE, missingForSubmit, APP_VERSION, GUIDELINES_VERSION } from '../schema.js';
 
 export const PANEL_ORDER = ['Blood tests', 'Urine tests', 'Microbiology', 'Imaging', 'Procedures', 'Medications'];
@@ -32,7 +33,7 @@ export function itemOrder(caseDoc) {
 
 export function sharedLine(line) {
   const tag = line.unrated ? ['not rated', 'This order is in one workup only but is not part of the rating.']
-    : line.shared === 'differs' ? ['both, details differ', 'In both workups; the details listed in brackets differ.']
+    : line.shared === 'differs' ? ['both', 'In both workups; the details listed in brackets differ.']
       : line.shared === 'elsewhere' ? ['both', `In both workups; listed under ${line.otherPanel} in the other.`]
         : ['both', 'In both workups.'];
   return h('li', { class: `order order-shared${line.unrated ? ' order-unrated' : ''}`, title: tag[1] },
@@ -176,7 +177,8 @@ export async function renderCase(main, ctx, caseId) {
         type: 'button', role: 'radio', 'aria-checked': cur === s.code ? 'true' : 'false',
         class: `rate-btn rate-${s.cls}${cur === s.code ? ' is-on' : ''}`, disabled: locked, title: s.desc,
         onclick: (e) => { e.stopPropagation(); setRating(itemId, s.code); },
-      }, h('b', {}, s.code === '?' ? 'U' : s.code), h('span', {}, s.label))));
+        dataset: { code: s.code },
+      }, h('span', {}, s.label))));
   }
 
   function reasonButtons(itemId) {
@@ -207,9 +209,7 @@ export async function renderCase(main, ctx, caseId) {
       tabindex: locked ? null : '0', dataset: { item: id },
       onfocus: () => setCurrent(id, false), onclick: () => setCurrent(id, false),
     },
-    h('div', { class: 'order-line' },
-      h('span', { class: `only only-${w}` }, `${w} only`),
-      h('span', { class: 'order-text' }, line.text)),
+    h('div', { class: 'order-line' }, h('span', { class: 'order-text' }, line.text)),
     ratingButtons(id),
     ann.items[id]?.r === 'H' ? reasonButtons(id) : null,
     ref?.items?.[id] ? h('p', { class: 'ref-ans' }, `Study physicians: ${codeLabel(ref.items[id].r)}.`,
@@ -289,14 +289,14 @@ export async function renderCase(main, ctx, caseId) {
   function workupCard(w) {
     const wk = ann.workups[w] || {};
     const sel = HARM_LEVELS.find((x) => x.code === wk.harm);
-    const rest = sel ? sel.potential : 'Choose a level to see what it means.';
+    const rest = sel ? sel.potential : '';
     const hint = h('p', { class: 'harm-hint' }, rest);
     const show = (lvl) => () => { hint.textContent = lvl.potential; };
     const back = () => { hint.textContent = rest; };
     const box = h('fieldset', { class: 'card workup-card' },
       h('legend', {}, h('span', { class: `side side-${w}` }, w), `Workup ${w}`),
       h('div', { class: 'field-row' },
-        h('span', { class: 'row-label', id: `harm-l-${w}` }, 'Worst plausible harm'),
+        h('span', { class: 'row-label', id: `harm-l-${w}` }, 'Extent of possible harm'),
         h('div', { class: 'seg seg-harm', role: 'radiogroup', 'aria-labelledby': `harm-l-${w}` },
           HARM_LEVELS.map((lvl, i) => h('label', { class: `seg-opt harm-${i}${wk.harm === lvl.code ? ' is-on' : ''}`, title: `AHRQ: ${lvl.ahrq}`,
             onmouseenter: show(lvl), onmouseleave: back, onfocusin: show(lvl), onfocusout: back },
@@ -335,7 +335,7 @@ export async function renderCase(main, ctx, caseId) {
         p.label)));
   }
   const prefWrap = h('div', { class: 'pref' }, prefGroup());
-  const comment = h('textarea', { rows: 3, maxlength: 2000, disabled: locked, placeholder: 'Optional. For example: information you would have needed, or an inconsistency in the case.',
+  const comment = h('textarea', { rows: 3, maxlength: 2000, disabled: locked, placeholder: 'Optional',
     oninput: (e) => { ann.comment = e.target.value; clearTimeout(comment._t); comment._t = setTimeout(() => save({ comment: ann.comment }), 600); } }, ann.comment || '');
 
   // ---------- sticky bar ----------
@@ -426,20 +426,20 @@ export async function renderCase(main, ctx, caseId) {
         h('a', { href: preview ? '#/admin' : '#/', class: 'back' }, '← All cases'),
         h('div', { class: 'case-title' },
           h('h1', {}, title),
-          asg?.practice ? h('span', { class: 'pill pill-practice' }, 'Practice, not analysed') : null,
+          asg?.practice ? h('span', { class: 'pill pill-practice' }, 'Practice') : null,
           caseDoc.synthetic ? h('span', { class: 'pill' }, 'Invented case') : null,
           locked && !preview ? h('span', { class: 'pill pill-done' }, 'Submitted') : null),
         h('div', { class: 'case-meta' }, saveState,
+          h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => openTutorialDialog(cfg.formVersion) }, 'How to rate'),
           h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: reportProblem }, 'Report a problem'))),
       preview ? h('p', { class: 'notice' }, 'Study-team preview. Nothing is saved.') : null,
-      ref ? h('div', { class: 'notice' }, h('p', {}, 'Practice case. The study physicians\' answers are shown under yours. Practice answers are not analysed.'),
+      ref ? h('div', { class: 'notice' }, h('p', {}, 'The study physicians\' answers are shown under yours.'),
         ref.note ? h('p', {}, ref.note) : null) : null,
 
-      h('div', { class: 'card presentation' }, h('h2', { class: 'card-title' }, 'At arrival'), h('p', {}, caseDoc.presentation)),
+      h('div', { class: 'card presentation' }, h('h2', { class: 'card-title' }, 'On arrival'), h('p', {}, caseDoc.presentation)),
 
       h('section', { class: 'block' },
-        h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '1'), 'The two conversations before ordering'),
-        h('p', { class: 'block-note' }, 'What the patient said in either conversation applies to both.'),
+        h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '1'), 'Conversations'),
         exam ? h('div', { class: 'card exam-shared' }, h('h3', { class: 'card-title' }, 'Physical examination (same in both workups)'), h('p', { class: 'msg-text' }, exam)) : null,
         h('div', { class: 'two-col conv-cols' },
           conversationColumn('A', caseDoc.workups.A.conversation, { compact: true, hideExam: !!exam }),
@@ -447,16 +447,14 @@ export async function renderCase(main, ctx, caseId) {
 
       h('section', { class: 'block' },
         h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '2'), nOrders
-          ? `Rate the ${nOrders} order${nOrders === 1 ? '' : 's'} present in one workup only`
+          ? `Orders in one workup only (${nOrders})`
           : 'Both workups placed the same orders'),
         nOrders ? null : h('p', { class: 'notice' }, 'Nothing to rate here. Review the orders, then rate each workup as a whole below.'),
-        h('p', { class: 'block-note' }, 'Grey orders are in both workups. ',
-          h('span', { class: 'kbd-hint' }, 'Keys: ', scale.map((s) => h('kbd', {}, s.code === '?' ? 'U' : s.code)), ' rate · ', h('kbd', {}, 'J'), h('kbd', {}, 'K'), ' move')),
         ordersGrid, unplacedBox),
 
       h('section', { class: 'block' },
-        h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '3'), 'Each workup as a whole'),
-        h('p', { class: 'block-note' }, 'Worst harm these orders could plausibly cause, counting anything important left out.'),
+        h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '3'), 'Each workup'),
+        h('p', { class: 'block-note' }, 'Include harm from anything important left out.'),
         workupsWrap),
 
       h('section', { class: 'block' },

@@ -48,7 +48,7 @@ const DEMO_P1_REFERENCE = {
 
 export const DEMO_CASES = [
   makeCase({
-    id: 'DEMO-P1', practice: true,
+    id: 'DEMO-P1', practice: false,
     presentation: 'Chief complaint: epigastric pain. 52-year-old man. Triage vitals: T 37.4 C, HR 104, BP 138/86, RR 20, SpO2 97% on room air. Pain 8/10.',
     conv: {
       A: [

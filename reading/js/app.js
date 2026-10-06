@@ -136,9 +136,9 @@ function renderShell() {
   const u = state.user;
   const role = u?.role;
   const links = [];
-  if (u && (role === 'rater' || !role)) links.push(['', 'Cases'], ['guidelines', 'Guidelines'], ['profile', 'Profile']);
-  if (u && role === 'adjudicator') links.push(['adjudicate', 'Adjudication'], ['guidelines', 'Guidelines'], ['profile', 'Profile']);
-  if (u && role === 'admin') links.push(['admin', 'Readers'], ['guidelines', 'Guidelines']);
+  if (u && (role === 'rater' || !role)) links.push(['', 'Cases'], ['guidelines', 'How to rate'], ['profile', 'Profile']);
+  if (u && role === 'adjudicator') links.push(['adjudicate', 'Adjudication'], ['guidelines', 'How to rate'], ['profile', 'Profile']);
+  if (u && role === 'admin') links.push(['admin', 'Readers'], ['guidelines', 'How to rate']);
   const current = location.hash.replace(/^#\/?/, '').split('/')[0];
 
   mount(root(),

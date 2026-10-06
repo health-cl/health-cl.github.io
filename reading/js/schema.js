@@ -1,22 +1,24 @@
 // Scales, profile fields and validation. One place, so the form, the guidelines and the
 // export script all use the same codes. Codes are what is stored; labels are what raters see.
 
-export const APP_VERSION = '1.2.0';
-export const GUIDELINES_VERSION = 'G1.8-draft';
+export const APP_VERSION = '1.3.0';
+export const GUIDELINES_VERSION = 'G1.9-draft';
 
 // Per-order rating. v2 = protocol draft section 3 (adds H). v1 = the declared packet form.
 export const ORDER_SCALES = {
   v2: [
-    { code: 'N', short: 'Needed for this patient now; leaving it out is a loss.', key: 'n', label: 'Needed', cls: 'appropriate',
-      desc: 'Needed for this patient now. Leaving it out, as the other workup does, is a loss.' },
-    { code: 'E', short: 'Reasonable to order and reasonable to omit.', key: 'e', label: 'Either way', cls: 'appropriate',
-      desc: 'Reasonable to order and reasonable to omit.' },
-    { code: 'X', short: 'Low value for this patient; any harm is trivial.', key: 'x', label: 'Not indicated', cls: 'not-indicated',
-      desc: 'Low value for this patient: no expected benefit, and any harm is trivial (for example, one more blood test).' },
-    { code: 'H', short: 'Expected harm outweighs benefit, or contraindicated.', key: 'h', label: 'Harmful', cls: 'harmful',
-      desc: 'Harmful or contraindicated for this patient: its expected harm (radiation, contrast, adverse drug effects, a cascade of further tests or treatment) outweighs any benefit, or something shown contraindicates it.' },
-    { code: '?', short: 'Cannot be judged from what is shown.', key: 'u', label: 'Cannot tell', cls: 'unknown',
-      desc: 'Cannot be judged from what is shown (for example, it depends entirely on a dose, or on information the case does not give).' },
+    // Labels (G1.9) use standard terms: necessary and appropriate (RAND/UCLA appropriateness method), low value
+    // (low-value care), harmful, unable to assess. Stored codes are unchanged.
+    { code: 'N', short: 'This patient needs it now; leaving it out is a loss.', key: '1', label: 'Necessary', cls: 'appropriate',
+      desc: 'Necessary: this patient needs it now. Leaving it out, as the other workup does, is a loss.' },
+    { code: 'E', short: 'Reasonable to order or to leave out.', key: '2', label: 'Appropriate', cls: 'appropriate',
+      desc: 'Appropriate but not necessary: reasonable to order or to leave out.' },
+    { code: 'X', short: 'Little or no benefit for this patient; any harm is trivial.', key: '3', label: 'Low value', cls: 'not-indicated',
+      desc: 'Low value: little or no benefit for this patient, and any harm is trivial (for example, one more blood test).' },
+    { code: 'H', short: 'Expected harm outweighs benefit, or contraindicated.', key: '4', label: 'Harmful', cls: 'harmful',
+      desc: 'Harmful: expected harm (radiation, contrast, adverse drug effects, further unneeded care) outweighs any benefit, or something shown contraindicates it.' },
+    { code: '?', short: 'Depends on information not shown, such as the dose.', key: '5', label: 'Unable to assess', cls: 'unknown',
+      desc: 'Unable to assess from what is shown (for example, it depends entirely on the dose).' },
   ],
   v1: [
     { code: 'N', key: 'n', label: 'Needed', cls: 'appropriate',

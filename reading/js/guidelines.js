@@ -12,6 +12,7 @@ export const CHANGES = {
   'G1.6-draft': ['Two rules made explicit: an order the other workup replaces with an equivalent one is not "Needed"; medications are shown by name only. The questions you answer are unchanged.'],
   'G1.7-draft': ['Shorter text. Likelihood of harm is asked only when the harm is moderate or worse.'],
   'G1.8-draft': ['If you rate an order Harmful, you also choose the main reason.'],
+  'G1.9-draft': ['Guidelines shown as a short walkthrough; rating labels use standard terms (Necessary, Appropriate, Low value, Harmful, Unable to assess); no practice case.'],
 };
 
 export const GUIDELINES = {

@@ -494,3 +494,23 @@ details.block > summary { cursor: pointer; font-weight: 650; font-size: 1.05rem;
 .why-btn:hover { border-color: var(--bad); }
 .why-btn.is-on { background: var(--bad); border-color: var(--bad); color: #fff; }
 .why-chosen { margin: 4px 0 0; font-size: .82rem; color: var(--bad); }
+
+/* Walkthrough (G1.9) */
+.tut-page { display: flex; justify-content: center; padding-top: 6vh; }
+.tut-card { max-width: 620px; width: 100%; }
+.tut-dialog { max-width: 620px; width: calc(100% - 32px); padding: 0; }
+.tut-dialog .tut { padding: 28px; }
+.tut-head { display: flex; justify-content: space-between; align-items: center; }
+.tut-count { font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.tut-title { margin: 6px 0 14px; font-size: 1.35rem; text-wrap: balance; }
+.tut-body p { margin: 0 0 10px; line-height: 1.55; }
+.tut-scale { display: grid; grid-template-columns: max-content 1fr; gap: 8px 14px; margin: 6px 0 14px; align-items: center; }
+.tut-scale dd { margin: 0; font-size: .92rem; color: var(--ink-2); }
+.tut-rule { font-weight: 600; }
+.tut-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+.tut-chip { font-size: .8rem; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); }
+.tut-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
+.tut-dots { display: flex; gap: 6px; }
+.tut-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.tut-dots span.on { background: var(--accent); }
+.tut-btns { display: flex; gap: 8px; }

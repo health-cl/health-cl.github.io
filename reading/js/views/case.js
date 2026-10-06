@@ -1,6 +1,6 @@
 import { h, mount, toast, confirmDialog, fmtDuration } from '../dom.js';
 import { isNoteId } from './note.js';
-import { ORDER_SCALES, HARM_LEVELS, LIKELIHOOD, SERIOUS, PREFERENCE, missingForSubmit, APP_VERSION, GUIDELINES_VERSION } from '../schema.js';
+import { ORDER_SCALES, HARM_LEVELS, HARM_REASONS, LIKELIHOOD, SERIOUS, PREFERENCE, missingForSubmit, APP_VERSION, GUIDELINES_VERSION } from '../schema.js';
 
 export const PANEL_ORDER = ['Blood tests', 'Urine tests', 'Microbiology', 'Imaging', 'Procedures', 'Medications'];
 const IDLE_LIMIT_S = 120;
@@ -179,6 +179,27 @@ export async function renderCase(main, ctx, caseId) {
       }, h('b', {}, s.code === '?' ? 'U' : s.code), h('span', {}, s.label))));
   }
 
+  function reasonButtons(itemId) {
+    const cur = ann.items[itemId]?.why;
+    if (locked) return h('p', { class: 'why-chosen' }, `Main reason: ${HARM_REASONS.find((x) => x.code === cur)?.label || 'not given'}.`);
+    return h('div', { class: 'why', role: 'radiogroup', 'aria-label': 'Main reason this order is harmful' },
+      h('span', { class: 'why-label' }, 'Main reason:'),
+      HARM_REASONS.map((x) => h('button', {
+        type: 'button', role: 'radio', 'aria-checked': cur === x.code ? 'true' : 'false', title: x.desc,
+        class: `why-btn${cur === x.code ? ' is-on' : ''}`, onclick: (e) => { e.stopPropagation(); setReason(itemId, x.code); },
+      }, x.label)));
+  }
+
+  function setReason(id, code) {
+    if (locked) return;
+    ann.items[id] = { ...(ann.items[id] || {}), why: code };
+    save({ items: { [id]: { why: code } } });
+    refreshRow(id);
+    updateBar();
+    const nextId = order.slice(order.indexOf(id) + 1).find((x) => !ann.items[x]?.r) || order.find((x) => !ann.items[x]?.r);
+    if (nextId) setCurrent(nextId); else { setCurrent(id, false); rowEls[id]?.focus({ preventScroll: true }); }
+  }
+
   function itemRow(line, w) {
     const id = line.item;
     const row = h('li', {
@@ -190,6 +211,7 @@ export async function renderCase(main, ctx, caseId) {
       h('span', { class: `only only-${w}` }, `${w} only`),
       h('span', { class: 'order-text' }, line.text)),
     ratingButtons(id),
+    ann.items[id]?.r === 'H' ? reasonButtons(id) : null,
     ref?.items?.[id] ? h('p', { class: 'ref-ans' }, `Study physicians: ${codeLabel(ref.items[id].r)}.`,
       ref.items[id].note ? ` ${ref.items[id].note}` : '') : null);
     rowEls[id] = row;
@@ -216,10 +238,12 @@ export async function renderCase(main, ctx, caseId) {
 
   function setRating(id, code) {
     if (locked) return;
-    ann.items[id] = { ...(ann.items[id] || {}), r: code };
-    save({ items: { [id]: { r: code } } });
+    const keepWhy = code === 'H' && ann.items[id]?.why;
+    ann.items[id] = keepWhy ? { r: code, why: ann.items[id].why } : { r: code };
+    save({ items: { [id]: { r: code, ...(keepWhy ? {} : { why: null }) } } });
     refreshRow(id);
     updateBar();
+    if (code === 'H' && !keepWhy) { setCurrent(id, false); return; }   // stay on the order until its reason is chosen
     const nextId = order.slice(order.indexOf(id) + 1).find((x) => !ann.items[x]?.r) || order.find((x) => !ann.items[x]?.r);
     if (nextId) setCurrent(nextId); else { setCurrent(id, false); rowEls[id]?.focus({ preventScroll: true }); }
   }

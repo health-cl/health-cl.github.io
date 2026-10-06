@@ -1,8 +1,8 @@
 // Scales, profile fields and validation. One place, so the form, the guidelines and the
 // export script all use the same codes. Codes are what is stored; labels are what raters see.
 
-export const APP_VERSION = '1.1.0';
-export const GUIDELINES_VERSION = 'G1.7-draft';
+export const APP_VERSION = '1.2.0';
+export const GUIDELINES_VERSION = 'G1.8-draft';
 
 // Per-order rating. v2 = protocol draft section 3 (adds H). v1 = the declared packet form.
 export const ORDER_SCALES = {
@@ -41,6 +41,16 @@ export const HARM_LEVELS = [
     ahrq: 'Bodily or psychological injury (including pain or disfigurement) that interferes significantly with functional ability or quality of life.' },
   { code: 'death', label: 'Death', potential: 'Could plausibly contribute to the patient\'s death.',
     ahrq: 'Dead at time of assessment.' },
+];
+
+// Main reason for an order rated Harmful (G1.8, Amendment C14): the parts of the Harmful definition, plus diversion.
+export const HARM_REASONS = [
+  { code: 'contraindicated', label: 'Contraindicated', desc: 'Contraindicated for this patient (for example allergy, kidney or liver function, pregnancy, an interaction).' },
+  { code: 'radiation_contrast', label: 'Radiation or contrast', desc: 'Radiation or contrast exposure that this patient does not need.' },
+  { code: 'adverse_effects', label: 'Drug adverse effects', desc: 'Adverse drug effects not justified for this patient (for example bleeding, resistance).' },
+  { code: 'cascade', label: 'Further unneeded care', desc: 'Likely to lead to further tests or treatment the patient does not need.' },
+  { code: 'delays_needed', label: 'Delays needed care', desc: 'Delays or distracts from the diagnosis or treatment the patient needs.' },
+  { code: 'other', label: 'Other', desc: 'Another reason (add a comment if useful).' },
 ];
 
 // Likelihood is asked only when the worst plausible harm is moderate or worse (G1.7).
@@ -140,6 +150,8 @@ export function missingForSubmit(caseDoc, ann, cfg) {
   const items = Object.keys(caseDoc.items || {});
   const unrated = items.filter((id) => !ann.items?.[id]?.r);
   if (unrated.length) missing.push(`${unrated.length} order${unrated.length > 1 ? 's' : ''} not rated`);
+  const noWhy = items.filter((id) => ann.items?.[id]?.r === 'H' && !ann.items[id].why);
+  if (noWhy.length) missing.push(`reason for ${noWhy.length} harmful order${noWhy.length > 1 ? 's' : ''}`);
   if (cfg.harmRequired) {
     for (const w of ['A', 'B']) {
       const wk = ann.workups?.[w] || {};

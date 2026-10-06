@@ -486,3 +486,11 @@ details.block > summary { cursor: pointer; font-weight: 650; font-size: 1.05rem;
 /* Practice feedback (Amendment C10) */
 .ref-ans { margin: 4px 0 0; font-size: .84rem; color: var(--accent); }
 .order-rated .ref-ans { padding-left: 2px; }
+
+/* Reason for a Harmful rating (G1.8) */
+.why { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.why-label { font-size: .8rem; color: var(--ink-2); }
+.why-btn { font: inherit; font-size: .78rem; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.why-btn:hover { border-color: var(--bad); }
+.why-btn.is-on { background: var(--bad); border-color: var(--bad); color: #fff; }
+.why-chosen { margin: 4px 0 0; font-size: .82rem; color: var(--bad); }

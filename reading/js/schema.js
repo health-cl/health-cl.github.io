@@ -1,16 +1,16 @@
 // Scales, profile fields and validation. One place, so the form, the guidelines and the
 // export script all use the same codes. Codes are what is stored; labels are what raters see.
 
-export const APP_VERSION = '1.4.0';
-export const GUIDELINES_VERSION = 'G1.10-draft';
+export const APP_VERSION = '2.0.0';
+export const GUIDELINES_VERSION = 'G2.0-draft';
 
 // Per-order rating. v2 = protocol draft section 3 (adds H). v1 = the declared packet form.
 export const ORDER_SCALES = {
   v2: [
     // Labels (G1.9) use standard terms: necessary and appropriate (RAND/UCLA appropriateness method), low value
     // (low-value care), harmful, unable to assess. Stored codes are unchanged.
-    { code: 'N', short: 'This patient needs it now; leaving it out is a loss.', key: '1', label: 'Necessary', cls: 'appropriate',
-      desc: 'Necessary: this patient needs it now. Leaving it out, as the other workup does, is a loss.' },
+    { code: 'N', short: 'This patient needs it now.', key: '1', label: 'Necessary', cls: 'appropriate',
+      desc: 'Necessary: this patient needs it now. You are then asked whether the other workup meets the same need another way.' },
     { code: 'E', short: 'Reasonable to order or to leave out.', key: '2', label: 'Appropriate', cls: 'appropriate',
       desc: 'Appropriate but not necessary: reasonable to order or to leave out.' },
     { code: 'X', short: 'Little or no benefit for this patient; any harm is trivial.', key: '3', label: 'Low value', cls: 'not-indicated',
@@ -58,10 +58,25 @@ export const HARM_REASONS = [
 // Likelihood is asked only when the worst plausible harm is moderate or worse (G1.7).
 export const SERIOUS = new Set(['moderate', 'severe', 'death']);
 
+// G2.0 (Amendment C20): likelihood that the identified error leads to that harm if care proceeds uncorrected.
 export const LIKELIHOOD = [
-  { code: 'low', label: 'Low' },
-  { code: 'medium', label: 'Medium' },
-  { code: 'high', label: 'High' },
+  { code: 'low', label: 'Unlikely' },
+  { code: 'medium', label: 'Possible' },
+  { code: 'high', label: 'Likely' },
+  { code: 'unknown', label: 'Cannot estimate' },
+];
+
+// G2.0 (Amendment C20). Necessary orders: does the other workup meet the same need another way?
+export const ALT_OPTIONS = [{ code: 'yes', label: 'Yes' }, { code: 'no', label: 'No' }, { code: 'unsure', label: 'Unsure' }];
+// Each workup: an error that should be corrected before care proceeds (including anything important left out).
+export const PLAN_ERROR = [{ code: 'yes', label: 'Yes' }, { code: 'no', label: 'No' }, { code: 'unsure', label: 'Unable to assess' }];
+export const SEVERITY = HARM_LEVELS.filter((x) => x.code !== 'none');
+export const COMMON_OMISSION = [{ code: 'no', label: 'No' }, { code: 'yes', label: 'Yes' }, { code: 'unsure', label: 'Unable to assess' }];
+export const PREF_REASONS = [
+  { code: 'safer', label: 'Safer care' },
+  { code: 'needed', label: 'Covers needed care' },
+  { code: 'fewer', label: 'Fewer unnecessary orders' },
+  { code: 'other', label: 'Other' },
 ];
 
 export const NOTE_EFFECT = [
@@ -86,6 +101,7 @@ export const PREFERENCE5 = [
   { code: 'none', strength: null, label: 'No preference' },
   { code: 'B', strength: 'slight', label: 'Slightly prefer B' },
   { code: 'B', strength: 'strong', label: 'Strongly prefer B' },
+  { code: 'cannot', strength: null, label: 'Cannot compare' },
 ];
 
 export const PREFERENCE = [
@@ -159,17 +175,23 @@ export function sectionComplete(section, values) {
 export function missingForSubmit(caseDoc, ann, cfg) {
   const missing = [];
   const items = Object.keys(caseDoc.items || {});
-  const unrated = items.filter((id) => !ann.items?.[id]?.r);
+  const it = (id) => ann.items?.[id] || {};
+  const unrated = items.filter((id) => !it(id).r);
   if (unrated.length) missing.push(`${unrated.length} order${unrated.length > 1 ? 's' : ''} not rated`);
-  const noWhy = items.filter((id) => ann.items?.[id]?.r === 'H' && !ann.items[id].why);
+  const noAlt = items.filter((id) => it(id).r === 'N' && !it(id).alt);
+  if (noAlt.length) missing.push(`other-workup question for ${noAlt.length} necessary order${noAlt.length > 1 ? 's' : ''}`);
+  const noWhy = items.filter((id) => it(id).r === 'H' && !it(id).why);
   if (noWhy.length) missing.push(`reason for ${noWhy.length} harmful order${noWhy.length > 1 ? 's' : ''}`);
-  if (cfg.harmRequired) {
-    for (const w of ['A', 'B']) {
-      const wk = ann.workups?.[w] || {};
-      if (!wk.harm) missing.push(`potential harm for workup ${w}`);
-      else if (cfg.likelihood && SERIOUS.has(wk.harm) && !wk.likelihood) missing.push(`likelihood of harm for workup ${w}`);
+  for (const w of ['A', 'B']) {
+    const wk = ann.workups?.[w] || {};
+    if (!wk.error) missing.push(`important-error question for workup ${w}`);
+    else if (wk.error === 'yes') {
+      if (!wk.links || !Object.keys(wk.links).length) missing.push(`where the error is, workup ${w}`);
+      if (!wk.harm) missing.push(`severity, workup ${w}`);
+      if (!wk.likelihood) missing.push(`likelihood, workup ${w}`);
     }
   }
-  if (!ann.preference || (ann.preference !== 'none' && !ann.preferenceStrength)) missing.push('preferred workup');
+  if (!ann.commonOmission) missing.push('question on both workups');
+  if (!ann.preference || ((ann.preference === 'A' || ann.preference === 'B') && (!ann.preferenceStrength || !ann.prefReason))) missing.push('preferred workup and reason');
   return missing;
 }

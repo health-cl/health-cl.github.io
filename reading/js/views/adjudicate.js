@@ -34,6 +34,7 @@ export async function renderAdjCase(main, { store, state, go }, caseId) {
   const wkIds = Object.keys(set.workups || {});
   const labelOf = (code) => scale.find((s) => s.code === code)?.label || code;
   const harmLabel = (code) => HARM_LEVELS.find((x) => x.code === code)?.label || code;
+const errLabel = (code) => ({ yes: 'Yes', no: 'No' }[code] || harmLabel(code));   // G2.0: workups are adjudicated on the important-error question
 
   const body = h('div');
   const bar = h('div', { class: 'submit-bar' });
@@ -71,9 +72,9 @@ export async function renderAdjCase(main, { store, state, go }, caseId) {
         wkIds.map((w) => {
           const d = set.workups[w];
           return h('div', { class: 'card adj-row' },
-            h('div', { class: 'order-line' }, h('span', { class: `side side-${w}` }, w), h('span', { class: 'order-text' }, `Potential harm, workup ${w}`)),
-            h('p', { class: 'adj-votes' }, h('span', {}, 'Rater 1: ', h('b', {}, harmLabel(d.r1))), h('span', {}, 'Rater 2: ', h('b', {}, harmLabel(d.r2)))),
-            choice(adj.workups[w], HARM_LEVELS.map((x) => ({ code: x.code, label: x.label })),
+            h('div', { class: 'order-line' }, h('span', { class: `side side-${w}` }, w), h('span', { class: 'order-text' }, `Important error in workup ${w}?`)),
+            h('p', { class: 'adj-votes' }, h('span', {}, 'Rater 1: ', h('b', {}, errLabel(d.r1))), h('span', {}, 'Rater 2: ', h('b', {}, errLabel(d.r2)))),
+            choice(adj.workups[w], [{ code: 'yes', label: 'Yes' }, { code: 'no', label: 'No' }],
               (code) => { adj.workups[w] = code; store.patchAdjudication(uid, caseId, { workups: { [w]: code } }); render(); }, `final-harm-${w}`));
         })));
     const left = itemIds.filter((id) => !adj.items[id]).length + wkIds.filter((w) => !adj.workups[w]).length;

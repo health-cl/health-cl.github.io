@@ -1,5 +1,5 @@
 import { h, mount } from '../dom.js';
-import { ORDER_SCALES, HARM_LEVELS, HARM_REASONS } from '../schema.js';
+import { ORDER_SCALES, HARM_LEVELS } from '../schema.js';
 
 // Short walkthrough (G1.9): shown as a pop-up before the first case and from "How to rate" on every case page.
 // Terms: RAND/UCLA appropriateness (necessary, appropriate), low-value care, AHRQ Common Formats harm scale.
@@ -12,7 +12,8 @@ export const TUTORIAL_STEPS = [
     title: 'Two workups of one patient',
     body: () => [
       h('p', {}, 'Each case is one simulated emergency department patient that an AI agent worked up twice, A and B.'),
-      h('p', {}, 'Read both conversations. What the patient said in either one applies to both workups.'),
+      h('p', {}, 'Judge each workup for this patient, using everything the patient said in either conversation. You are judging care for the patient, not what each agent knew.'),
+      h('p', {}, 'If the two conversations disagree on a fact that matters, tick the box at the end of the case.'),
     ],
   },
   {
@@ -20,23 +21,21 @@ export const TUTORIAL_STEPS = [
     body: (scale) => [
       h('p', {}, 'Orders in both workups are grey and are not rated.'),
       h('dl', { class: 'tut-scale' }, scale.map((s) => [h('dt', {}, h('span', { class: `scale-pill chip-${s.cls}` }, s.label)), h('dd', {}, s.short)])),
-      h('p', { class: 'tut-rule' }, 'If the other workup has an equivalent order, choose Appropriate, not Necessary.'),
-      h('p', {}, 'For Harmful, also choose the main reason:'),
-      chips(HARM_REASONS.map((r) => r.label)),
+      h('p', {}, 'For Necessary, say whether the other workup meets the same need another way. For Harmful, choose the main reason.'),
     ],
   },
   {
-    title: 'Rate each workup as a whole',
+    title: 'Look for important errors in each workup',
     body: () => [
-      h('p', {}, 'Choose the extent of possible harm from its orders, including anything important left out.'),
-      chips(HARM_LEVELS.map((x) => x.label)),
-      h('p', {}, 'For Moderate or worse, also choose how likely that harm is.'),
+      h('p', {}, 'An important error is one that should be corrected before care proceeds, including anything important left out.'),
+      h('p', {}, 'If there is one, mark where it is, how severe the resulting harm could be and how likely it is.'),
+      chips(HARM_LEVELS.filter((x) => x.code !== 'none').map((x) => x.label)),
     ],
   },
   {
-    title: 'Choose a workup and submit',
+    title: 'Both workups, then your preference',
     body: () => [
-      h('p', {}, 'Say which workup you would rather this patient received, and how strongly, or choose No preference. Then submit.'),
+      h('p', {}, 'Say whether an important action is missing from both workups. Then choose the workup you would rather this patient received and the main reason, or No preference, or Cannot compare.'),
       h('p', {}, 'Answers save as you go. You can stop at any point and continue another day. Keys 1 to 5 rate the selected order.'),
       h('p', {}, 'After the cases, you read a few notes the agent wrote for itself.'),
       h('p', { class: 'tut-rule' }, 'Keep the cases confidential: do not paste them into online tools or discuss them with other readers.'),

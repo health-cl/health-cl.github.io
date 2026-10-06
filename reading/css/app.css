@@ -514,3 +514,7 @@ details.block > summary { cursor: pointer; font-weight: 650; font-size: 1.05rem;
 .tut-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
 .tut-dots span.on { background: var(--accent); }
 .tut-btns { display: flex; gap: 8px; }
+
+/* Five-level preference (G1.10) */
+.seg-pref { flex-wrap: wrap; }
+.seg-pref .seg-opt { min-width: 0; }

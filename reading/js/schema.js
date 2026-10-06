@@ -1,8 +1,8 @@
 // Scales, profile fields and validation. One place, so the form, the guidelines and the
 // export script all use the same codes. Codes are what is stored; labels are what raters see.
 
-export const APP_VERSION = '1.3.0';
-export const GUIDELINES_VERSION = 'G1.9-draft';
+export const APP_VERSION = '1.4.0';
+export const GUIDELINES_VERSION = 'G1.10-draft';
 
 // Per-order rating. v2 = protocol draft section 3 (adds H). v1 = the declared packet form.
 export const ORDER_SCALES = {
@@ -77,6 +77,15 @@ export const NOTE_LESSON = [
   { code: 'selective', label: 'Order selectively (fewer tests)' },
   { code: 'mixed', label: 'Both' },
   { code: 'none', label: 'No lesson about ordering' },
+];
+
+// Case preference with strength (G1.10, Amendment C18): stored as preference A/B/none plus preferenceStrength.
+export const PREFERENCE5 = [
+  { code: 'A', strength: 'strong', label: 'Strongly prefer A' },
+  { code: 'A', strength: 'slight', label: 'Slightly prefer A' },
+  { code: 'none', strength: null, label: 'No preference' },
+  { code: 'B', strength: 'slight', label: 'Slightly prefer B' },
+  { code: 'B', strength: 'strong', label: 'Strongly prefer B' },
 ];
 
 export const PREFERENCE = [
@@ -161,6 +170,6 @@ export function missingForSubmit(caseDoc, ann, cfg) {
       else if (cfg.likelihood && SERIOUS.has(wk.harm) && !wk.likelihood) missing.push(`likelihood of harm for workup ${w}`);
     }
   }
-  if (!ann.preference) missing.push('preferred workup');
+  if (!ann.preference || (ann.preference !== 'none' && !ann.preferenceStrength)) missing.push('preferred workup');
   return missing;
 }

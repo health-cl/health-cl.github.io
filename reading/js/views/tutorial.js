@@ -36,7 +36,7 @@ export const TUTORIAL_STEPS = [
   {
     title: 'Choose a workup and submit',
     body: () => [
-      h('p', {}, 'Choose the workup you would rather this patient received, then submit.'),
+      h('p', {}, 'Say which workup you would rather this patient received, and how strongly, or choose No preference. Then submit.'),
       h('p', {}, 'Answers save as you go. You can stop at any point and continue another day. Keys 1 to 5 rate the selected order.'),
       h('p', {}, 'After the cases, you read a few notes the agent wrote for itself.'),
       h('p', { class: 'tut-rule' }, 'Keep the cases confidential: do not paste them into online tools or discuss them with other readers.'),

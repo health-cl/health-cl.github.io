@@ -13,6 +13,7 @@ export const CHANGES = {
   'G1.7-draft': ['Shorter text. Likelihood of harm is asked only when the harm is moderate or worse.'],
   'G1.8-draft': ['If you rate an order Harmful, you also choose the main reason.'],
   'G1.9-draft': ['Guidelines shown as a short walkthrough; rating labels use standard terms (Necessary, Appropriate, Low value, Harmful, Unable to assess); no practice case.'],
+  'G1.10-draft': ['Rated items are orders (lab components are grouped into the order they belong to); the preference has five levels.'],
 };
 
 export const GUIDELINES = {

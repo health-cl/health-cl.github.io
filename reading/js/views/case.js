@@ -1,7 +1,7 @@
 import { h, mount, toast, confirmDialog, fmtDuration } from '../dom.js';
 import { isNoteId } from './note.js';
 import { openTutorialDialog } from './tutorial.js';
-import { ORDER_SCALES, HARM_LEVELS, HARM_REASONS, LIKELIHOOD, SERIOUS, PREFERENCE, missingForSubmit, APP_VERSION, GUIDELINES_VERSION } from '../schema.js';
+import { ORDER_SCALES, HARM_LEVELS, HARM_REASONS, LIKELIHOOD, SERIOUS, PREFERENCE5, missingForSubmit, APP_VERSION, GUIDELINES_VERSION } from '../schema.js';
 
 export const PANEL_ORDER = ['Blood tests', 'Urine tests', 'Microbiology', 'Imaging', 'Procedures', 'Medications'];
 const IDLE_LIMIT_S = 120;
@@ -52,6 +52,21 @@ export function agentQuestions(text) {
     for (const sent of line.split(/(?<=[.?!])\s+/)) if (sent.trim().endsWith('?')) out.push(sent.trim());
   }
   return out;
+}
+
+// Display only (Amendment C19): de-identification blanks read as [removed]; an examination that opens with the word
+// "Admission" (it was copied from the admission note) does not show that word. Stored case text is unchanged.
+export function cleanText(t) { return String(t ?? '').replace(/_{3,}/g, '[removed]'); }
+export function cleanCase(caseDoc) {
+  const c = JSON.parse(JSON.stringify(caseDoc));
+  c.presentation = cleanText(c.presentation);
+  for (const w of ['A', 'B']) {
+    for (const m of (c.workups?.[w]?.conversation || [])) {
+      m.text = cleanText(m.text);
+      if (m.who === 'result' && /physical exam/i.test(m.label || '')) m.text = m.text.replace(/^\s*admission\b[\s:]*/i, '');
+    }
+  }
+  return c;
 }
 
 export function sharedExam(caseDoc) {
@@ -115,6 +130,7 @@ export async function renderCase(main, ctx, caseId) {
     return;
   }
   if (!caseDoc) { toast('Case not found.', 'error'); return go(''); }
+  caseDoc = cleanCase(caseDoc);
   ann = ann || {};
   ann.items = ann.items || {};
   caseDoc.items = caseDoc.items || {}; // Firebase drops empty objects (cases with no one-sided order)
@@ -328,10 +344,15 @@ export async function renderCase(main, ctx, caseId) {
 
   // ---------- preference + comment ----------
   function prefGroup() {
-    return h('div', { class: 'seg seg-lg', role: 'radiogroup', 'aria-label': 'Preferred workup' },
-      PREFERENCE.map((p) => h('label', { class: `seg-opt${ann.preference === p.code ? ' is-on' : ''}` },
-        h('input', { type: 'radio', name: 'pref', value: p.code, checked: ann.preference === p.code, disabled: locked,
-          onchange: () => { ann.preference = p.code; save({ preference: p.code }); prefWrap.replaceChild(prefGroup(), prefWrap.lastChild); prefWrap.querySelector('input:checked')?.focus(); updateBar(); } }),
+    const on = (p) => ann.preference === p.code && (ann.preferenceStrength || null) === p.strength;
+    return h('div', { class: 'seg seg-pref', role: 'radiogroup', 'aria-label': 'Preferred workup' },
+      PREFERENCE5.map((p) => h('label', { class: `seg-opt${on(p) ? ' is-on' : ''}` },
+        h('input', { type: 'radio', name: 'pref', value: `${p.code}${p.strength ? `-${p.strength}` : ''}`, checked: on(p), disabled: locked,
+          onchange: () => {
+            ann.preference = p.code; ann.preferenceStrength = p.strength;
+            save({ preference: p.code, preferenceStrength: p.strength });
+            prefWrap.replaceChild(prefGroup(), prefWrap.lastChild); prefWrap.querySelector('input:checked')?.focus(); updateBar();
+          } }),
         p.label)));
   }
   const prefWrap = h('div', { class: 'pref' }, prefGroup());
@@ -382,7 +403,7 @@ export async function renderCase(main, ctx, caseId) {
         h('ul', { class: 'summary' },
           h('li', {}, `Orders: ${scale.filter((s) => counts[s.code]).map((s) => `${counts[s.code]} ${s.label.toLowerCase()}`).join(', ')}`),
           h('li', {}, `Potential harm: A ${hl('A')}; B ${hl('B')}`),
-          h('li', {}, `Preferred: ${PREFERENCE.find((p) => p.code === ann.preference)?.label}`))),
+          h('li', {}, `Preference: ${PREFERENCE5.find((p) => p.code === ann.preference && (ann.preferenceStrength || null) === p.strength)?.label}`))),
       confirm: 'Submit',
     });
     if (!ok) return;

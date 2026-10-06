@@ -1,6 +1,6 @@
 import { h, mount, toast, confirmDialog } from '../dom.js';
 import { ORDER_SCALES, HARM_LEVELS } from '../schema.js';
-import { panelsOf, conversationColumn, sortedLines } from './case.js';
+import { panelsOf, conversationColumn, sortedLines, cleanCase } from './case.js';
 
 // The adjudicator sees the case and, for each disagreement only, the two ratings labelled
 // "Rater 1" and "Rater 2" (never names), and records the final value.
@@ -25,7 +25,8 @@ export async function renderAdjQueue(main, { store, state }) {
 export async function renderAdjCase(main, { store, state, go }, caseId) {
   const uid = state.user.uid;
   const scale = ORDER_SCALES[state.config.formVersion || 'v2'];
-  const [caseDoc, set, prior] = await Promise.all([store.getCase(caseId), store.getAdjudicationSet(caseId), store.getAdjudication(uid, caseId)]);
+  const [rawCase, set, prior] = await Promise.all([store.getCase(caseId), store.getAdjudicationSet(caseId), store.getAdjudication(uid, caseId)]);
+  const caseDoc = rawCase ? cleanCase(rawCase) : rawCase;
   if (!caseDoc || !set) { toast('Nothing to adjudicate for this case.', 'error'); return go('adjudicate'); }
   const adj = { items: {}, workups: {}, ...(prior || {}) };
   const locked = !!adj.submittedAt;

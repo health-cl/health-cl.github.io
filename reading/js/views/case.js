@@ -299,20 +299,27 @@ export async function renderCase(main, ctx, caseId) {
   document.addEventListener('keydown', onKey);
 
   // ---------- orders grid ----------
+  // Orders in both workups are not rated; they are folded so the rated orders stay in view (open with one click).
   const panels = panelsOf(caseDoc);
-  const ordersGrid = h('div', { class: 'orders' },
+  const isBoth = (line) => !line.item && !line.unrated;
+  const linesOf = (w, panel) => sortedLines((caseDoc.workups[w].orders || []).find((x) => x.panel === panel)?.lines);
+  const nBoth = panels.reduce((n, panel) => n + linesOf('A', panel).filter(isBoth).length, 0);
+  const ordersGrid = h('div', { class: `orders${nBoth && order.length ? ' hide-shared' : ''}` },
     h('div', { class: 'orders-head' },
       ['A', 'B'].map((w) => h('h3', { class: 'col-head' }, h('span', { class: `side side-${w}` }, w), `Workup ${w}`))),
-    panels.map((panel) => h('div', { class: 'panel-row' },
+    panels.map((panel) => h('div', { class: `panel-row${['A', 'B'].every((w) => linesOf(w, panel).every(isBoth)) ? ' panel-all-shared' : ''}` },
       h('h4', { class: 'panel-name' }, panel),
       h('div', { class: 'panel-cells' }, ['A', 'B'].map((w) => {
-        const p = (caseDoc.workups[w].orders || []).find((x) => x.panel === panel);
-        const lines = sortedLines(p?.lines);
+        const lines = linesOf(w, panel);
+        const both = lines.filter(isBoth).length;
         return h('ul', { class: `cell cell-${w}`, 'aria-label': `Workup ${w}, ${panel}` },
-          lines.length ? lines.map((line) => (line.item ? itemRow(line, w)
-            : sharedLine(line)))
+          lines.length ? [...lines.map((line) => (line.item ? itemRow(line, w) : sharedLine(line))),
+            both ? h('li', { class: 'order shared-count' }, `${both} in both workups`) : null]
             : h('li', { class: 'order order-none' }, 'none'));
       })))));
+  const bothLabel = () => (ordersGrid.classList.contains('hide-shared') ? `Show orders in both workups (${nBoth})` : 'Hide orders in both workups');
+  const bothToggle = nBoth && order.length ? h('button', { type: 'button', class: 'linklike both-toggle', onclick: () => { ordersGrid.classList.toggle('hide-shared'); bothToggle.textContent = bothLabel(); } }, '') : null;
+  if (bothToggle) bothToggle.textContent = bothLabel();
   const unplaced = Object.entries(caseDoc.items || {}).filter(([id]) => !Object.values(caseDoc.workups).some((wk) => (wk.orders || []).some((p) => (p.lines || []).some((l) => l.item === id))));
   const unplacedBox = unplaced.length ? h('div', { class: 'card' },
     h('h3', {}, 'Other one-sided orders'),
@@ -520,7 +527,7 @@ export async function renderCase(main, ctx, caseId) {
           ? `Orders in one workup only (${nOrders})`
           : 'Both workups placed the same orders'),
         nOrders ? null : h('p', { class: 'notice' }, 'Nothing to rate here. Review the orders, then rate each workup as a whole below.'),
-        ordersGrid, unplacedBox),
+        bothToggle, ordersGrid, unplacedBox),
 
       h('section', { class: 'block' },
         h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '3'), 'Each workup'),

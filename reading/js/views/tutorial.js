@@ -19,7 +19,7 @@ export const TUTORIAL_STEPS = [
   {
     title: 'Rate each order found in one workup only',
     body: (scale) => [
-      h('p', {}, 'Orders in both workups are grey and are not rated.'),
+      h('p', {}, 'Orders in both workups are not rated. They are folded; open them with Show orders in both workups.'),
       h('dl', { class: 'tut-scale' }, scale.map((s) => [h('dt', {}, h('span', { class: `scale-pill chip-${s.cls}` }, s.label)), h('dd', {}, s.short)])),
       h('p', {}, 'For Necessary, say whether the other workup meets the same need another way. For Harmful, choose the main reason.'),
     ],

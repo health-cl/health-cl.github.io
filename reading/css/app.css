@@ -518,3 +518,10 @@ details.block > summary { cursor: pointer; font-weight: 650; font-size: 1.05rem;
 /* Five-level preference (G1.10) */
 .seg-pref { flex-wrap: wrap; }
 .seg-pref .seg-opt { min-width: 0; }
+
+/* 2.0.1: orders in both workups folded by default */
+.both-toggle { display: inline-block; margin: 0 0 8px; font-size: .85rem; }
+.shared-count { display: none; color: var(--muted); font-size: .8rem; font-style: italic; }
+.orders.hide-shared .order-shared:not(.order-unrated) { display: none; }
+.orders.hide-shared .panel-all-shared { display: none; }
+.orders.hide-shared .shared-count { display: block; }

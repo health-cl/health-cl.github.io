@@ -41,12 +41,13 @@ export async function renderAdmin(main, ctx) {
   const approved = rows.filter((r) => r.access && r.access.role !== 'adjudicator');
   const waiting = h('div', { class: 'card table-wrap' }, h('table', { class: 'table' }, h('tbody', {},
     pending.length ? pending.map((r) => {
-      const sel = h('select', { class: 'select-sm', 'aria-label': 'Case list' }, freeSlots.map((s) => h('option', { value: s }, slotName(s))));
       if (!freeSlots.length) {
         return h('tr', {}, who(r), h('td', { class: 'muted small' }, 'No free case list. Ask the study team to add one, then approve.'));
       }
-      return h('tr', {}, who(r), h('td', { class: 'row-tight' }, sel,
-        h('button', { class: 'btn btn-sm btn-primary', type: 'button', onclick: () => approve(r, sel.value) }, 'Approve')));
+      // One click: the reader gets the next free case list (study sessions in order, then pilot lists).
+      return h('tr', {}, who(r), h('td', { class: 'row-tight' },
+        h('button', { class: 'btn btn-sm btn-primary', type: 'button', onclick: () => approve(r, freeSlots[0]) }, 'Approve'),
+        h('span', { class: 'muted small' }, slotName(freeSlots[0]))));
     }) : h('tr', {}, h('td', { class: 'muted' }, 'No one is waiting.')))));
   const readers = h('div', { class: 'card table-wrap' }, h('table', { class: 'table' }, h('tbody', {},
     approved.length ? approved.map((r) => h('tr', {}, who(r),

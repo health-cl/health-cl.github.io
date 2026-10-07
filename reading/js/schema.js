@@ -1,7 +1,7 @@
 // Scales, profile fields and validation. One place, so the form, the guidelines and the
 // export script all use the same codes. Codes are what is stored; labels are what raters see.
 
-export const APP_VERSION = '2.0.4';
+export const APP_VERSION = '2.0.5';
 export const GUIDELINES_VERSION = 'G2.0-draft';
 
 // Per-order rating. v2 = protocol draft section 3 (adds H). v1 = the declared packet form.

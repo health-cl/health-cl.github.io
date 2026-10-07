@@ -5,8 +5,22 @@ export async function renderAdmin(main, ctx) {
   const { store } = ctx;
   mount(main, h('section', { class: 'page' }, h('p', { class: 'muted' }, 'Loading…')));
   const { rows, slots, slotHolders } = await store.adminOverview();
-  const freeSlots = slots.filter((s) => !slotHolders[s] && !/^(TEST|RT)/.test(s));  // test slots are not offered
-  const slotName = (s) => (/^session\d+$/.test(s) ? `Session ${s.slice(7)}` : s);
+  // Free case lists, study sessions first (session01, 02, ... in order, session00 last), then pilot lists; test slots are
+  // not offered. The first one is preselected, so a study reader gets the next session unless another list is chosen.
+  const rank = (s) => {
+    const m = s.match(/^session(\d+)$/);
+    if (m) return [0, Number(m[1]) === 0 ? 1e6 : Number(m[1])];
+    const p = s.match(/^PILOT(\d+)$/);
+    return p ? [1, Number(p[1])] : [2, 0];
+  };
+  const freeSlots = slots.filter((s) => !slotHolders[s] && !/^(TEST|RT)/.test(s))
+    .sort((a, b) => rank(a)[0] - rank(b)[0] || rank(a)[1] - rank(b)[1] || a.localeCompare(b));
+  const slotName = (s) => (/^session\d+$/.test(s) ? `Session ${s.slice(7)}` : /^PILOT\d+$/.test(s) ? `Pilot ${s.slice(5)}` : s);
+  const nSessions = freeSlots.filter((s) => rank(s)[0] === 0).length;
+  const nPilot = freeSlots.filter((s) => rank(s)[0] === 1).length;
+  const freeNote = h('p', { class: freeSlots.length <= 3 ? 'notice' : 'muted small' },
+    `Free case lists: ${nSessions} study session${nSessions === 1 ? '' : 's'}, ${nPilot} pilot.`
+    + (freeSlots.length <= 3 ? ' Running low: ask the study team to add more before the next approvals.' : ''));
   const name = (p) => (p?.fullName || '').trim() || '(no name yet)';
   const reload = () => renderAdmin(main, ctx);
 
@@ -40,6 +54,6 @@ export async function renderAdmin(main, ctx) {
 
   mount(main, h('section', { class: 'page' },
     h('h1', {}, 'Readers'),
-    h('h2', { class: 'block-title' }, `Waiting for approval (${pending.length})`), waiting,
+    h('h2', { class: 'block-title' }, `Waiting for approval (${pending.length})`), freeNote, waiting,
     h('h2', { class: 'block-title' }, `Approved (${approved.length})`), readers));
 }

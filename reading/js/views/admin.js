@@ -26,8 +26,11 @@ export async function renderAdmin(main, ctx) {
   const waiting = h('div', { class: 'card table-wrap' }, h('table', { class: 'table' }, h('tbody', {},
     pending.length ? pending.map((r) => {
       const sel = h('select', { class: 'select-sm', 'aria-label': 'Case list' }, freeSlots.map((s) => h('option', { value: s }, slotName(s))));
+      if (!freeSlots.length) {
+        return h('tr', {}, who(r), h('td', { class: 'muted small' }, 'No free case list. Ask the study team to add one, then approve.'));
+      }
       return h('tr', {}, who(r), h('td', { class: 'row-tight' }, sel,
-        h('button', { class: 'btn btn-sm btn-primary', type: 'button', disabled: !freeSlots.length, onclick: () => approve(r, sel.value) }, 'Approve')));
+        h('button', { class: 'btn btn-sm btn-primary', type: 'button', onclick: () => approve(r, sel.value) }, 'Approve')));
     }) : h('tr', {}, h('td', { class: 'muted' }, 'No one is waiting.')))));
   const readers = h('div', { class: 'card table-wrap' }, h('table', { class: 'table' }, h('tbody', {},
     approved.length ? approved.map((r) => h('tr', {}, who(r),

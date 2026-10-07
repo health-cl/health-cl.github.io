@@ -18,8 +18,10 @@ export async function renderAdmin(main, ctx) {
   const slotName = (s) => (/^session\d+$/.test(s) ? `Session ${s.slice(7)}` : /^PILOT\d+$/.test(s) ? `Pilot ${s.slice(5)}` : s);
   const nSessions = freeSlots.filter((s) => rank(s)[0] === 0).length;
   const nPilot = freeSlots.filter((s) => rank(s)[0] === 1).length;
+  const nOther = freeSlots.length - nSessions - nPilot;
   const freeNote = h('p', { class: freeSlots.length <= 3 ? 'notice' : 'muted small' },
-    `Free case lists: ${nSessions} study session${nSessions === 1 ? '' : 's'}, ${nPilot} pilot.`
+    `Free case lists: ${freeSlots.length} (${nSessions} study session${nSessions === 1 ? '' : 's'}, ${nPilot} pilot`
+    + `${nOther ? `, ${nOther} other` : ''}).`
     + (freeSlots.length <= 3 ? ' Running low: ask the study team to add more before the next approvals.' : ''));
   const name = (p) => (p?.fullName || '').trim() || '(no name yet)';
   const reload = () => renderAdmin(main, ctx);

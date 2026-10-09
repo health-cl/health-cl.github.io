@@ -420,11 +420,17 @@ export async function renderCase(main, ctx, caseId) {
     const nItems = order.length;
     const rated = order.filter((id) => ann.items[id]?.r).length;
     const missing = missingForSubmit(caseDoc, ann, cfg);
+    // An order is complete only with its follow-up: the other-workup question for Necessary, a reason for Harmful.
+    // Before 2.0.6 the chip counted ratings only, so it showed done while Submit stayed disabled (pilot, 2026-10-09).
+    const followUp = (id) => (ann.items[id]?.r === 'N' && !ann.items[id]?.alt) || (ann.items[id]?.r === 'H' && !ann.items[id]?.why);
+    const incomplete = order.filter((id) => !ann.items[id]?.r || followUp(id));
+    const nFollow = order.filter(followUp).length;
     const chk = (ok, label, target) => h('button', { type: 'button', class: `chk${ok ? ' ok' : ''}`, onclick: target },
       h('span', { class: 'chk-dot', 'aria-hidden': 'true' }, ok ? '✓' : ''), label);
     mount(bar,
       h('div', { class: 'chks' },
-        chk(rated === nItems, `Orders ${rated}/${nItems}`, () => setCurrent(order.find((id) => !ann.items[id]?.r) || order[0])),
+        chk(incomplete.length === 0, `Orders ${rated}/${nItems}${nFollow ? ` · ${nFollow} follow-up${nFollow > 1 ? 's' : ''} left` : ''}`,
+          () => setCurrent(incomplete[0] || order[0])),
         ['A', 'B'].map((w) => {
           const wk = ann.workups[w] || {};
           const ok = wk.error && (wk.error !== 'yes' || (wk.links && Object.keys(wk.links).length && wk.harm && wk.likelihood));
@@ -437,9 +443,11 @@ export async function renderCase(main, ctx, caseId) {
         ? h('button', { class: 'btn btn-primary', type: 'button', onclick: () => (ctx.next ? ctx.next() : go('')) }, 'Continue →')
         : locked
         ? h('span', { class: 'pill pill-done' }, preview ? 'Preview only' : 'Submitted')
-        : h('button', { class: 'btn btn-primary', type: 'button', disabled: missing.length > 0,
-          title: missing.length ? `Still needed: ${missing.join(', ')}` : 'Submit this case', onclick: submit },
-        'Submit case'));
+        : h('div', { class: 'submit-wrap' },
+          missing.length ? h('span', { class: 'still-needed' }, `Still needed: ${missing.join('; ')}`) : null,
+          h('button', { class: 'btn btn-primary', type: 'button', disabled: missing.length > 0,
+            title: missing.length ? `Still needed: ${missing.join(', ')}` : 'Submit this case', onclick: submit },
+          'Submit case')));
   }
 
   async function submit() {

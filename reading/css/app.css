@@ -525,3 +525,7 @@ details.block > summary { cursor: pointer; font-weight: 650; font-size: 1.05rem;
 .orders.hide-shared .order-shared:not(.order-unrated) { display: none; }
 .orders.hide-shared .panel-all-shared { display: none; }
 .orders.hide-shared .shared-count { display: block; }
+/* 2.0.6: what is still needed is written beside Submit (a disabled button shows no tooltip on most browsers) */
+.submit-wrap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.still-needed { font-size: .78rem; color: var(--ink-2); max-width: 46ch; text-align: right; }
+@media (max-width: 720px) { .still-needed { max-width: 100%; text-align: left; } }

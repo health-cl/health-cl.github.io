@@ -1,8 +1,8 @@
 // Scales, profile fields and validation. One place, so the form, the guidelines and the
 // export script all use the same codes. Codes are what is stored; labels are what raters see.
 
-export const APP_VERSION = '2.0.6';
-export const GUIDELINES_VERSION = 'G2.0-draft';
+export const APP_VERSION = '2.0.7';
+export const GUIDELINES_VERSION = 'G2.1-draft';
 
 // Per-order rating. v2 = protocol draft section 3 (adds H). v1 = the declared packet form.
 export const ORDER_SCALES = {
@@ -69,6 +69,11 @@ export const LIKELIHOOD = [
 // G2.0 (Amendment C20). Necessary orders: does the other workup meet the same need another way?
 export const ALT_OPTIONS = [{ code: 'yes', label: 'Yes' }, { code: 'no', label: 'No' }, { code: 'unsure', label: 'Unsure' }];
 // Each workup: an error that should be corrected before care proceeds (including anything important left out).
+// G2.1 (Amendment E): overall quality of each workup for this patient, a standard 5-point rating, asked of every workup.
+export const WORKUP_QUALITY = [
+  { code: '1', label: '1 Very poor' }, { code: '2', label: '2 Poor' }, { code: '3', label: '3 Acceptable' },
+  { code: '4', label: '4 Good' }, { code: '5', label: '5 Excellent' },
+];
 export const PLAN_ERROR = [{ code: 'yes', label: 'Yes' }, { code: 'no', label: 'No' }, { code: 'unsure', label: 'Unable to assess' }];
 export const SEVERITY = HARM_LEVELS.filter((x) => x.code !== 'none');
 export const COMMON_OMISSION = [{ code: 'no', label: 'No' }, { code: 'yes', label: 'Yes' }, { code: 'unsure', label: 'Unable to assess' }];
@@ -184,6 +189,7 @@ export function missingForSubmit(caseDoc, ann, cfg) {
   if (noWhy.length) missing.push(`reason for ${noWhy.length} harmful order${noWhy.length > 1 ? 's' : ''}`);
   for (const w of ['A', 'B']) {
     const wk = ann.workups?.[w] || {};
+    if (!wk.quality) missing.push(`overall quality of workup ${w}`);
     if (!wk.error) missing.push(`important-error question for workup ${w}`);
     else if (wk.error === 'yes') {
       if (!wk.links || !Object.keys(wk.links).length) missing.push(`where the error is, workup ${w}`);

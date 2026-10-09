@@ -25,9 +25,11 @@ export const TUTORIAL_STEPS = [
     ],
   },
   {
-    title: 'Look for important errors in each workup',
+    title: 'Rate each workup, and look for important errors',
     body: () => [
-      h('p', {}, 'An important error is one that should be corrected before care proceeds, including anything important left out.'),
+      h('p', {}, 'First rate the overall quality of each workup as care for this patient, from 1 Very poor to 5 Excellent.'),
+      h('p', {}, 'An important error is one you would correct before care proceeds. For example: something the patient needs is left out (no imaging for suspected appendicitis); a treatment is started before the test it depends on (antibiotics before cultures that are needed); an order could harm this patient (an NSAID in advanced kidney disease).'),
+      h('p', {}, 'Mark it even if harm is unlikely: severity and likelihood record how serious it is.'),
       h('p', {}, 'If there is one, mark where it is, how severe the resulting harm could be and how likely it is.'),
       chips(HARM_LEVELS.filter((x) => x.code !== 'none').map((x) => x.label)),
     ],

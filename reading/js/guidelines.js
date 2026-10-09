@@ -15,6 +15,7 @@ export const CHANGES = {
   'G1.9-draft': ['Guidelines shown as a short walkthrough; rating labels use standard terms (Necessary, Appropriate, Low value, Harmful, Unable to assess); no practice case.'],
   'G1.10-draft': ['Rated items are orders (lab components are grouped into the order they belong to); the preference has five levels.'],
   'G2.0-draft': ['Each workup is now checked for an important error (where, severity, likelihood); for Necessary orders you say whether the other workup meets the need another way; one question on both workups; Cannot compare and a main reason for the preference.'],
+  'G2.1-draft': ['Each workup gets an overall quality rating (1 Very poor to 5 Excellent). Important error: three examples (something needed left out; a treatment started before the test it depends on; an order that could harm this patient), and mark an error even if harm is unlikely. One question is added (overall quality); the others are unchanged.'],
 };
 
 export const GUIDELINES = {

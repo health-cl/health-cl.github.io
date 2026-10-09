@@ -1,7 +1,7 @@
 import { h, mount, toast, confirmDialog, fmtDuration } from '../dom.js';
 import { isNoteId } from './note.js';
 import { openTutorialDialog } from './tutorial.js';
-import { ORDER_SCALES, HARM_LEVELS, HARM_REASONS, LIKELIHOOD, PREFERENCE5, ALT_OPTIONS, PLAN_ERROR, SEVERITY, COMMON_OMISSION, PREF_REASONS, missingForSubmit, APP_VERSION, GUIDELINES_VERSION } from '../schema.js';
+import { ORDER_SCALES, HARM_LEVELS, HARM_REASONS, LIKELIHOOD, PREFERENCE5, ALT_OPTIONS, PLAN_ERROR, SEVERITY, COMMON_OMISSION, PREF_REASONS, WORKUP_QUALITY, missingForSubmit, APP_VERSION, GUIDELINES_VERSION } from '../schema.js';
 
 export const PANEL_ORDER = ['Blood tests', 'Urine tests', 'Microbiology', 'Imaging', 'Procedures', 'Medications'];
 const IDLE_LIMIT_S = 120;
@@ -341,6 +341,9 @@ export async function renderCase(main, ctx, caseId) {
     const box = h('fieldset', { class: 'card workup-card' },
       h('legend', {}, h('span', { class: `side side-${w}` }, w), `Workup ${w}`),
       h('div', { class: 'field-row' },
+        h('span', { class: 'row-label' }, 'Overall quality'),
+        seg(`quality-${w}`, WORKUP_QUALITY, wk.quality, (code) => setWorkup(w, { quality: code }), 'seg-wrap')),
+      h('div', { class: 'field-row' },
         h('span', { class: 'row-label' }, 'Important error'),
         seg(`error-${w}`, PLAN_ERROR, wk.error, (code) => setWorkup(w, code === 'yes' ? { error: code } : { error: code, links: null, harm: null, likelihood: null }))),
       wk.error === 'yes' ? [
@@ -433,7 +436,7 @@ export async function renderCase(main, ctx, caseId) {
           () => setCurrent(incomplete[0] || order[0])),
         ['A', 'B'].map((w) => {
           const wk = ann.workups[w] || {};
-          const ok = wk.error && (wk.error !== 'yes' || (wk.links && Object.keys(wk.links).length && wk.harm && wk.likelihood));
+          const ok = wk.quality && wk.error && (wk.error !== 'yes' || (wk.links && Object.keys(wk.links).length && wk.harm && wk.likelihood));
           return chk(ok, `Workup ${w}`, () => harmBoxes[w].scrollIntoView({ behavior: 'smooth', block: 'center' }));
         }),
         chk(!!ann.commonOmission, 'Both', () => bothWrap.scrollIntoView({ behavior: 'smooth', block: 'center' })),
@@ -539,7 +542,7 @@ export async function renderCase(main, ctx, caseId) {
 
       h('section', { class: 'block' },
         h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '3'), 'Each workup'),
-        h('p', { class: 'block-note' }, 'An important error is one that should be corrected before care proceeds, including anything important left out.'),
+        h('p', { class: 'block-note' }, 'Rate the overall quality of each workup as care for this patient. An important error is one you would correct before care proceeds: something needed left out, a treatment started before the test it depends on, or an order that could harm this patient. Mark it even if harm is unlikely; severity and likelihood record how serious it is.'),
         workupsWrap),
 
       h('section', { class: 'block' },

@@ -529,3 +529,13 @@ details.block > summary { cursor: pointer; font-weight: 650; font-size: 1.05rem;
 .submit-wrap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .still-needed { font-size: .78rem; color: var(--ink-2); max-width: 46ch; text-align: right; }
 @media (max-width: 720px) { .still-needed { max-width: 100%; text-align: left; } }
+/* 2.0.8: abbreviations (display only) */
+abbr.abbr { text-decoration: underline dotted; text-underline-offset: 2px; cursor: help; position: relative; }
+abbr.abbr:focus { outline: none; }
+abbr.abbr:focus::after { content: attr(data-full); position: absolute; left: 0; top: 1.5em; z-index: 30; white-space: nowrap;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; font-size: .8rem; }
+.abbr-list { margin-top: 8px; font-size: .85rem; color: var(--ink-2); }
+.abbr-list summary { cursor: pointer; }
+.abbr-list dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 8px 0 0; }
+.abbr-list dt { font-weight: 600; color: var(--ink); }
+.abbr-list dd { margin: 0; }

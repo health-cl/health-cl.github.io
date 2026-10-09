@@ -1,6 +1,7 @@
 import { h, mount, toast, confirmDialog, fmtDuration } from '../dom.js';
 import { isNoteId } from './note.js';
 import { openTutorialDialog } from './tutorial.js';
+import { withAbbr, abbreviationsIn } from '../abbreviations.js';
 import { ORDER_SCALES, HARM_LEVELS, HARM_REASONS, LIKELIHOOD, PREFERENCE5, ALT_OPTIONS, PLAN_ERROR, SEVERITY, COMMON_OMISSION, PREF_REASONS, WORKUP_QUALITY, missingForSubmit, APP_VERSION, GUIDELINES_VERSION } from '../schema.js';
 
 export const PANEL_ORDER = ['Blood tests', 'Urine tests', 'Microbiology', 'Imaging', 'Procedures', 'Medications'];
@@ -82,9 +83,9 @@ export function conversationColumn(w, conv, { compact = false, hideExam = false 
     if (m.who === 'agent' && !full) {
       const qs = agentQuestions(m.text);
       return h('li', { class: 'msg msg-agent msg-compact' }, h('span', { class: 'msg-who' }, qs.length ? 'Agent asked' : 'Agent'),
-        qs.length ? h('ul', { class: 'asked' }, qs.map((q) => h('li', {}, q))) : h('p', { class: 'msg-text muted' }, m.text));
+        qs.length ? h('ul', { class: 'asked' }, qs.map((q) => h('li', {}, withAbbr(q)))) : h('p', { class: 'msg-text muted' }, withAbbr(m.text)));
     }
-    return h('li', { class: `msg msg-${m.who}` }, h('span', { class: 'msg-who' }, label), h('p', { class: 'msg-text' }, m.text));
+    return h('li', { class: `msg msg-${m.who}` }, h('span', { class: 'msg-who' }, label), h('p', { class: 'msg-text' }, withAbbr(m.text)));
   }));
   render();
   const toggle = compact ? h('button', { type: 'button', class: 'linklike conv-toggle', onclick: () => { full = !full; toggle.textContent = full ? 'Show only the agent\'s questions' : 'Show the full conversation'; render(); } }, 'Show the full conversation') : null;
@@ -524,11 +525,16 @@ export async function renderCase(main, ctx, caseId) {
       ref ? h('div', { class: 'notice' }, h('p', {}, 'The study physicians\' answers are shown under yours.'),
         ref.note ? h('p', {}, ref.note) : null) : null,
 
-      h('div', { class: 'card presentation' }, h('h2', { class: 'card-title' }, 'On arrival'), h('p', {}, caseDoc.presentation)),
+      h('div', { class: 'card presentation' }, h('h2', { class: 'card-title' }, 'On arrival'), h('p', {}, withAbbr(caseDoc.presentation)),
+        (() => {   // Abbreviations in this case (display only); the dotted ones also show their meaning on hover or tap
+          const list = abbreviationsIn([caseDoc.presentation, ...['A', 'B'].flatMap((w) => (caseDoc.workups?.[w]?.conversation || []).map((m) => m.text))]);
+          return list.length ? h('details', { class: 'abbr-list' }, h('summary', {}, `Abbreviations in this case (${list.length})`),
+            h('dl', {}, list.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]))) : null;
+        })()),
 
       h('section', { class: 'block' },
         h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '1'), 'Conversations'),
-        exam ? h('div', { class: 'card exam-shared' }, h('h3', { class: 'card-title' }, 'Physical examination (same in both workups)'), h('p', { class: 'msg-text' }, exam)) : null,
+        exam ? h('div', { class: 'card exam-shared' }, h('h3', { class: 'card-title' }, 'Physical examination (same in both workups)'), h('p', { class: 'msg-text' }, withAbbr(exam))) : null,
         h('div', { class: 'two-col conv-cols' },
           conversationColumn('A', caseDoc.workups.A.conversation, { compact: true, hideExam: !!exam }),
           conversationColumn('B', caseDoc.workups.B.conversation, { compact: true, hideExam: !!exam }))),

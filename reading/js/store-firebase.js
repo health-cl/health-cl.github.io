@@ -219,6 +219,8 @@ export async function createFirebaseStore(firebaseConfig, { emulator = false, ap
           assigned: Object.values(asg).filter((a) => !a.practice).length,
           submitted: Object.entries(prog).filter(([cid, p]) => p.state === 'submitted' && asg[cid] && !asg[cid].practice).length,
           problems: Object.keys(problems?.[uid] || {}).length,
+          // any read already saved (pilot or practice); such a reader is moved with tools/admin.py move-to-session
+          hasReads: Object.keys(prog).length > 0,
         };
       });
       return { rows, slots: Object.keys(slots || {}).sort(), slotHolders: slotHolders || {},

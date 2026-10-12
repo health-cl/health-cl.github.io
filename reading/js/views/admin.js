@@ -37,12 +37,18 @@ export async function renderAdmin(main, ctx) {
   const who = (r) => h('td', {}, h('div', {}, name(r.profile)), h('div', { class: 'muted small' },
     [r.email, r.profile?.specialty, r.profile?.stage].filter(Boolean).join(' · ')));
 
-  const pending = rows.filter((r) => !r.access);
+  // The signed-in study admin has no reader record and must never be offered a case list (it took session05 and
+  // session08 on 2026-10-11 by one click on Approve).
+  const me = ctx.state?.user?.uid;
+  const pending = rows.filter((r) => !r.access && r.uid !== me);
   const approved = rows.filter((r) => r.access && r.access.role !== 'adjudicator');
   const waiting = h('div', { class: 'card table-wrap' }, h('table', { class: 'table' }, h('tbody', {},
     pending.length ? pending.map((r) => {
       if (!freeSlots.length) {
         return h('tr', {}, who(r), h('td', { class: 'muted small' }, 'No free case list. Ask the study team to add one, then approve.'));
+      }
+      if (r.hasReads && /^session/.test(freeSlots[0])) {
+        return h('tr', {}, who(r), h('td', { class: 'muted small' }, 'Has earlier pilot reads: approve with tools/admin.py move-to-session, which keeps those reads out of the study.'));
       }
       // One click: the reader gets the next free case list (study sessions in order, then pilot lists).
       return h('tr', {}, who(r), h('td', { class: 'row-tight' },

@@ -309,7 +309,8 @@ fieldset { margin: 0; min-width: 0; }
 .order { padding: 6px 8px; border-radius: 8px; font-size: .92rem; min-width: 0; }
 .order-shared { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); }
 .order-shared .order-text { overflow-wrap: anywhere; }
-.both { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; opacity: .75; flex: none; padding-top: 2px; }
+.both { font-size: .75rem; opacity: .85; flex: 0 0 auto; max-width: 11em; text-align: right; padding-top: 2px; }
+.both-note { margin: 0 0 8px; font-size: .85rem; color: var(--muted); }
 .order-none { color: var(--muted); font-style: italic; font-size: .85rem; }
 .order-rated { scroll-margin: 84px 0 96px; border: 1.5px solid var(--line); background: var(--surface); display: grid; gap: 8px; padding: 10px; cursor: default; }
 .order-rated.is-done { border-color: var(--line-2); background: var(--surface-2); }

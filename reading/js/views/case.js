@@ -33,10 +33,12 @@ export function itemOrder(caseDoc) {
 }
 
 export function sharedLine(line) {
+  // Amendment G (app 2.0.10): the tag says what the reader needs, "not rated"; the tooltip only adds detail.
+  const ctx = 'Ordered in both workups. Shown for context; not rated.';
   const tag = line.unrated ? ['not rated', 'This order is in one workup only but is not part of the rating.']
-    : line.shared === 'differs' ? ['both, components differ', 'In both workups; the components listed in brackets differ (not rated).']
-      : line.shared === 'elsewhere' ? ['both', `In both workups; listed under ${line.otherPanel} in the other.`]
-        : ['both', 'In both workups.'];
+    : line.shared === 'differs' ? ['in both, components differ · not rated', `${ctx} The components listed in brackets differ.`]
+      : line.shared === 'elsewhere' ? ['in both · not rated', `${ctx} Listed under ${line.otherPanel} in the other workup.`]
+        : ['in both · not rated', ctx];
   return h('li', { class: `order order-shared${line.unrated ? ' order-unrated' : ''}`, title: tag[1] },
     h('span', { class: 'order-text' }, line.text), h('span', { class: 'both' }, tag[0]));
 }
@@ -321,6 +323,7 @@ export async function renderCase(main, ctx, caseId) {
   const bothLabel = () => (ordersGrid.classList.contains('hide-shared') ? `Show orders in both workups (${nBoth})` : 'Hide orders in both workups');
   const bothToggle = nBoth && order.length ? h('button', { type: 'button', class: 'linklike both-toggle', onclick: () => { ordersGrid.classList.toggle('hide-shared'); bothToggle.textContent = bothLabel(); } }, '') : null;
   if (bothToggle) bothToggle.textContent = bothLabel();
+  const bothNote = nBoth ? h('p', { class: 'both-note' }, "Orders marked 'in both · not rated' appear in both workups. They are shown for context and are not rated.") : null;
   const unplaced = Object.entries(caseDoc.items || {}).filter(([id]) => !Object.values(caseDoc.workups).some((wk) => (wk.orders || []).some((p) => (p.lines || []).some((l) => l.item === id))));
   const unplacedBox = unplaced.length ? h('div', { class: 'card' },
     h('h3', {}, 'Other one-sided orders'),
@@ -440,7 +443,7 @@ export async function renderCase(main, ctx, caseId) {
           const ok = wk.quality && wk.error && (wk.error !== 'yes' || (wk.links && Object.keys(wk.links).length && wk.harm && wk.likelihood));
           return chk(ok, `Workup ${w}`, () => harmBoxes[w].scrollIntoView({ behavior: 'smooth', block: 'center' }));
         }),
-        chk(!!ann.commonOmission, 'Both', () => bothWrap.scrollIntoView({ behavior: 'smooth', block: 'center' })),
+        chk(!!ann.commonOmission, 'Missing in both', () => bothWrap.scrollIntoView({ behavior: 'smooth', block: 'center' })),
         chk(!!ann.preference && (!['A', 'B'].includes(ann.preference) || (ann.preferenceStrength && ann.prefReason)), 'Preference',
           () => prefWrap.scrollIntoView({ behavior: 'smooth', block: 'center' }))),
       locked && ref && !preview
@@ -544,7 +547,7 @@ export async function renderCase(main, ctx, caseId) {
           ? `Orders in one workup only (${nOrders})`
           : 'Both workups placed the same orders'),
         nOrders ? null : h('p', { class: 'notice' }, 'Nothing to rate here. Review the orders, then rate each workup as a whole below.'),
-        bothToggle, ordersGrid, unplacedBox),
+        bothToggle, bothNote, ordersGrid, unplacedBox),
 
       h('section', { class: 'block' },
         h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '3'), 'Each workup'),

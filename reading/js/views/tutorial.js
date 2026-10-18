@@ -12,6 +12,7 @@ export const TUTORIAL_STEPS = [
     title: 'Two workups of one patient',
     body: () => [
       h('p', {}, 'Each case is one simulated emergency department patient that an AI agent worked up twice, A and B.'),
+      h('p', {}, 'In some cases the record has no primary symptom, so the arrival line ends after the colon. The agents received the same line.'),
       h('p', {}, 'Judge each workup for this patient, using everything the patient said in either conversation. You are judging care for the patient, not what each agent knew.'),
       h('p', {}, 'If the two conversations disagree on a fact that matters, tick the box at the end of the case.'),
     ],

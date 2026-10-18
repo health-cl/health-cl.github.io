@@ -60,6 +60,10 @@ export function agentQuestions(text) {
 // Display only (Amendment C19): de-identification blanks read as [removed]; an examination that opens with the word
 // "Admission" (it was copied from the admission note) does not show that word. Stored case text is unchanged.
 export function cleanText(t) { return String(t ?? '').replace(/_{3,}/g, '[removed]'); }
+// Amendment H (app 2.0.11): MIRA's record has no primary symptom for some patients, so the agent's first message ends at the
+// colon. Display only: say so, and that the agents received the same line. Stored case text is unchanged.
+export const NO_SYMPTOM_NOTE = 'No primary symptom was recorded for this patient. The agents received the same blank line and learned the symptoms by asking the patient.';
+export function noPrimarySymptom(t) { return /primary symptoms:\s*$/i.test(String(t ?? '').trim()); }
 export function cleanCase(caseDoc) {
   const c = JSON.parse(JSON.stringify(caseDoc));
   c.presentation = cleanText(c.presentation);
@@ -529,6 +533,7 @@ export async function renderCase(main, ctx, caseId) {
         ref.note ? h('p', {}, ref.note) : null) : null,
 
       h('div', { class: 'card presentation' }, h('h2', { class: 'card-title' }, 'On arrival'), h('p', {}, withAbbr(caseDoc.presentation)),
+        noPrimarySymptom(caseDoc.presentation) ? h('p', { class: 'presentation-note' }, NO_SYMPTOM_NOTE) : null,
         (() => {   // Abbreviations in this case (display only); the dotted ones also show their meaning on hover or tap
           const list = abbreviationsIn([caseDoc.presentation, ...['A', 'B'].flatMap((w) => (caseDoc.workups?.[w]?.conversation || []).map((m) => m.text))]);
           return list.length ? h('details', { class: 'abbr-list' }, h('summary', {}, `Abbreviations in this case (${list.length})`),

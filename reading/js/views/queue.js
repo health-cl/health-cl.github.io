@@ -114,7 +114,13 @@ export async function renderQueue(main, ctx) {
         h('span', { style: { width: `${study.length ? (100 * submitted) / study.length : 0}%` } })) : null,
       debriefCard(),
       practice.length ? h('div', { class: 'card' }, h('h2', { class: 'card-title' }, 'Practice'), rows(practice, false)) : null,
-      h('div', { class: 'card' }, h('h2', { class: 'card-title' }, 'Cases'),
-        study.length ? rows(study, !practiceDone) : h('p', { class: 'muted' }, 'No study cases are assigned yet.')),
+      // Advisor slot: the cases of the advisor's earlier session first, under their own heading (Amendment I).
+      advisorSlot && study.some((a) => a.earlier) ? [
+        h('div', { class: 'card' }, h('h2', { class: 'card-title' }, `Cases from your earlier session · ${study.filter((a) => a.earlier).length}`),
+          rows(study.filter((a) => a.earlier), false)),
+        h('div', { class: 'card' }, h('h2', { class: 'card-title' }, `All other cases · ${study.filter((a) => !a.earlier).length}`),
+          rows(study.filter((a) => !a.earlier), false, study.filter((a) => a.earlier).length))]
+        : h('div', { class: 'card' }, h('h2', { class: 'card-title' }, 'Cases'),
+          study.length ? rows(study, !practiceDone) : h('p', { class: 'muted' }, 'No study cases are assigned yet.')),
       notes.length ? h('div', { class: 'card' }, h('h2', { class: 'card-title' }, `Agent notes · ${notesDone} of ${notes.length}`), rows(notes, !(practiceDone && studyDone))) : null));
 }

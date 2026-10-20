@@ -27,7 +27,7 @@ export function createDemoStore() {
   let authCb = () => {};
   const all = [...DEMO_CASES, ...DEMO_NOTE_PAIRS];
   const cases = Object.fromEntries(all.map((c) => [c.id, c]));
-  const assignments = Object.fromEntries(all.map((c, i) => [c.id, { order: i, practice: !!c.practice, ...(c.advisor ? { free: true } : {}) }]));
+  const assignments = Object.fromEntries(all.map((c, i) => [c.id, { order: i, practice: !!c.practice, ...(c.advisor ? { free: true, earlier: true } : {}) }]));
 
   const store = {
     mode: 'demo',

@@ -158,7 +158,7 @@ export async function renderCase(main, ctx, caseId) {
   const practice = assignments.filter((a) => a.practice);
   const title = preview ? `Preview ${caseId}` : asg.practice
     ? `Practice ${practice.findIndex((a) => a.caseId === caseId) + 1} of ${practice.length}`
-    : `Case ${study.findIndex((a) => a.caseId === caseId) + 1} of ${study.length}`;
+    : `Case ${study.findIndex((a) => a.caseId === caseId) + 1} of ${study.length}${asg.free ? ` · ${caseId.replace(/X$/, '')}` : ''}`;
 
   // ---------- autosave ----------
   const saveState = h('span', { class: 'save-state', role: 'status', 'aria-live': 'polite' }, locked ? '' : ann.updatedAt ? 'Saved' : '');

@@ -171,6 +171,7 @@ export function encounterColumn(w, wk, { hideExam = false, advisor = false } = {
       h('div', { class: 'enc-sec-head' }, h('h4', {}, 'History'), hist.toggle),
       advisor && (wk.historyReasoning || []).length ? h('details', { class: 'reasoning' }, h('summary', {}, 'Reasoning summaries recorded during the history'),
         (wk.historyReasoning || []).map((x) => h('p', { class: 'msg-text' }, x.text))) : null,
+      advisor && wk.reasoningRecorded === false ? h('p', { class: 'muted small' }, 'The model recorded no reasoning summary for this workup.') : null,
       hist.body),
     h('section', { class: 'enc-sec' },
       h('div', { class: 'enc-sec-head' }, h('h4', {}, 'Orders and results')),

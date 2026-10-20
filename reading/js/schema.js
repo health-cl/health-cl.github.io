@@ -1,7 +1,7 @@
 // Scales, profile fields and validation. One place, so the form, the guidelines and the
 // export script all use the same codes. Codes are what is stored; labels are what raters see.
 
-export const APP_VERSION = '3.0.1';
+export const APP_VERSION = '3.0.2';
 export const GUIDELINES_VERSION = 'G3.0';
 
 // Per-order rating. v2 = protocol draft section 3 (adds H). v1 = the declared packet form.
@@ -17,8 +17,8 @@ export const ORDER_SCALES = {
       desc: 'Low value: little or no benefit for this patient, and any harm is trivial (for example, one more blood test).' },
     { code: 'H', short: 'Expected harm outweighs benefit, or contraindicated.', key: '4', label: 'Harmful', cls: 'harmful',
       desc: 'Harmful: expected harm (radiation, contrast, adverse drug effects, further unneeded care) outweighs any benefit, or something shown contraindicates it.' },
-    { code: '?', short: 'Depends on information not shown, such as the dose.', key: '5', label: 'Unable to assess', cls: 'unknown',
-      desc: 'Unable to assess from what is shown (for example, it depends entirely on the dose).' },
+    { code: '?', short: 'Depends on information not shown, such as a dose the agent did not give.', key: '5', label: 'Unable to assess', cls: 'unknown',
+      desc: 'Unable to assess from what is shown (for example, it depends on a dose the agent did not give).' },
   ],
   v1: [
     { code: 'N', key: 'n', label: 'Needed', cls: 'appropriate',

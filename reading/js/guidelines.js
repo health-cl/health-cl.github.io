@@ -37,7 +37,7 @@ export const GUIDELINES = {
   ],
   rules: [
     'What the patient said in either conversation applies to both workups.',
-    'Medications show the drug name only: judge whether it is indicated; choose Cannot tell only if it depends on the dose.',
+    'Medications show the dose, route and frequency the agent gave; choose Unable to assess only if the decision depends on information not shown.',
     'Keep cases confidential. Answers save automatically.',
   ],
   notes: 'At the end: a few pairs of short notes an AI agent wrote for itself.',

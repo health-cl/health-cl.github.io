@@ -1,204 +1,173 @@
-// SYNTHETIC demo cases. Invented patients written for this demo; no text comes from MIMIC-IV or the
-// study packet. They have the same shape as the real cases built by tools/build_cases.py.
+// SYNTHETIC demo cases (display v3, Amendment I). Invented patients written for this demo; no text comes from MIMIC-IV or the
+// study packet. They have the same shape as the real cases built by tools/build_cases_v3.py.
 //
-// In `orders`, a leading '*' marks an order present in this workup only (a rated item).
+// In each step's `orders`, a leading '*' marks an order present in this workup only (a rated item).
 
 const A = (text) => ({ who: 'agent', text });
 const P = (text) => ({ who: 'patient', text });
 const R = (label, text) => ({ who: 'result', label, text });
+const lab = (rows) => ({ tool: 'LabRequestList', panel: 'Blood tests', rows });
+const urine = (rows) => ({ tool: 'UrineRequestList', panel: 'Urine tests', rows });
+const report = (panel, text) => ({ tool: 'report', panel, text });
+const v = (test, value, unit, range, flag) => ({ test, value, ...(unit ? { unit } : {}), ...(range ? { range } : {}), ...(flag ? { flag } : {}) });
+const na = (test) => ({ test, missing: true });
 
-function makeCase({ id, practice = false, presentation, conv, orders }) {
+function makeCase({ id, patient, presentation, conv, steps, final, advisor = false, history }) {
   const items = {};
   let n = 0;
   const workups = {};
   for (const side of ['A', 'B']) {
+    const lines = {};
+    const timeline = [];
+    let k = 0;
+    for (const st of steps[side]) {
+      const step = st.noOrders ? null : (k += 1);
+      const orders = [];
+      for (const [panel, list] of Object.entries(st.orders || {})) {
+        for (const raw of list) {
+          const [nameRaw, detail] = raw.split(' | ');
+          const oneSided = nameRaw.startsWith('*');
+          const text = oneSided ? nameRaw.slice(1) : nameRaw;
+          const line = { text, step, ...(detail ? { detail } : {}) };
+          if (oneSided) { n += 1; const iid = `i${String(n).padStart(2, '0')}`; items[iid] = { side, panel, name: text, step }; line.item = iid; }
+          else line.shared = 'same';
+          (lines[panel] = lines[panel] || []).push(line);
+          orders.push({ panel, text });
+        }
+      }
+      timeline.push({ step, orders, text: st.text || '', reply: st.reply || '', results: st.results || [], other: [], finish: !!st.finish,
+        seen: !!st.seen, ...(advisor && st.reasoning ? { reasoning: st.reasoning } : {}) });
+    }
+    const panels = ['Blood tests', 'Urine tests', 'Microbiology', 'Imaging', 'Procedures', 'Medications'];
+    const nOrders = Object.values(lines).reduce((a, l) => a + l.length, 0);
     workups[side] = {
-      conversation: conv[side],
-      orders: Object.entries(orders[side]).map(([panel, lines]) => ({
-        panel,
-        lines: lines.map((raw) => {
-          const oneSided = raw.startsWith('*');
-          const text = oneSided ? raw.slice(1) : raw;
-          if (!oneSided) return { text };
-          n += 1;
-          const itemId = `i${String(n).padStart(2, '0')}`;
-          items[itemId] = { side, panel, name: text };
-          return { text, item: itemId };
-        }),
-      })),
+      conversation: conv[side], timeline,
+      orders: panels.filter((p) => lines[p]).map((panel) => ({ panel, lines: lines[panel] })),
+      summary: { steps: k, orders: nOrders, finishStep: k, finishBeforeResults: k === 1 && steps[side][0].finish },
+      final: final[side],
+      ...(advisor && history?.[side] ? { historyReasoning: history[side] } : {}),
     };
   }
-  return { id, practice, synthetic: true, presentation, workups, items, ...(id === 'DEMO-P1' ? { reference: DEMO_P1_REFERENCE } : {}) };
+  return { id, practice: false, synthetic: true, display: 'v3', ...(advisor ? { advisor: true } : {}), presentation, patient, workups, items,
+    ...(id === 'DEMO-P1' ? { reference: DEMO_P1_REFERENCE } : {}) };
 }
 
 // Invented answers for the demo practice case, in the shape tools/admin.py set-reference writes for a real practice case.
 const DEMO_P1_REFERENCE = {
-  note: 'Morphine (A) and hydromorphone (B) are equivalent: neither is Needed, because the other workup has an equivalent order.',
-  items: {
-    i01: { r: 'E' },
-    i02: { r: 'N', note: 'Ultrasound looks for gallstones in a first episode of pancreatitis.' },
-    i03: { r: 'E' },
-    i04: { r: 'E' },
-    i05: { r: 'X', note: 'Early CT adds little when lipase and the pain already make the diagnosis.' },
-    i06: { r: 'E' },
-    i07: { r: 'H', note: 'No sign of infection; antibiotics are not given to prevent infection in acute pancreatitis.' },
-  },
+  note: 'Workup A waited for the laboratory results before choosing the ultrasound; workup B ordered CT and an antibiotic before any result.',
+  items: {},
   workups: { A: { harm: 'mild' }, B: { harm: 'moderate' } },
 };
 
+const PANC = {
+  id: 'DEMO-P1',
+  patient: { sex: 'Male', age: '52' },
+  presentation: 'The patient you are now seeing has primary symptoms: epigastric pain radiating to the back, vomiting.',
+  conv: {
+    A: [
+      A('Hello, I am the emergency physician on duty. I understand you have pain in the upper part of your stomach. When did it start, and does it go anywhere?'),
+      P('It started last night after dinner, maybe ten hours ago. It goes straight through to my back. I have thrown up four times.'),
+      A('Thank you. Do you drink alcohol, and have you had anything like this before? Any gallstones?'),
+      P('I drink most days, about six beers. Never had this before. Nobody ever said anything about gallstones.'),
+      A('Any medical problems or regular medicines? Any allergies?'),
+      P('High blood pressure, I take lisinopril. No allergies.'),
+      R('physical examination', 'Uncomfortable, leaning forward. Mucous membranes dry. Epigastric tenderness with voluntary guarding, no rebound. Murphy sign negative. No jaundice. Lungs clear.'),
+    ],
+    B: [
+      A('Hello, I am the emergency physician. Tell me about the pain you came in with.'),
+      P('Upper belly, since last night, going through to my back. Vomited a few times.'),
+      A('How much alcohol do you usually drink, and have you had fevers?'),
+      P('About six beers most days. No fever that I know of.'),
+      R('physical examination', 'Uncomfortable, leaning forward. Mucous membranes dry. Epigastric tenderness with voluntary guarding, no rebound. Murphy sign negative. No jaundice. Lungs clear.'),
+    ],
+  },
+  steps: {
+    A: [
+      { reasoning: 'Epigastric pain to the back with heavy alcohol use: pancreatitis first, biliary colic and peptic ulcer next. Start with blood tests and fluids; image only if the lipase or the liver tests point to the biliary tree.',
+        text: 'I will start with blood tests and fluids for you, and something for the nausea and pain.',
+        orders: { 'Blood tests': ['Complete blood count with differential | WBC, hemoglobin, platelets, differential', 'Basic metabolic panel | sodium, potassium, chloride, bicarbonate, BUN, creatinine, glucose, calcium',
+          'Hepatic function panel | AST, ALT, ALP, total bilirubin, albumin', 'Lipase', '*Lactate'],
+          'Medications': ["Lactated ringer's | 1000 mL, intravenous", 'Ondansetron | 4 mg, intravenous', '*Morphine | 4 mg, intravenous'] },
+        results: [lab([v('Lipase', '2450', 'U/L', '0 to 60', 'H'), v('White blood cells', '13.8', 'K/uL', '4.0 to 11.0', 'H'), v('Hemoglobin', '15.1', 'g/dL', '13.7 to 17.5'),
+          v('Platelet count', '231', 'K/uL', '150 to 400'), v('Sodium', '137', 'mEq/L', '133 to 145'), v('Potassium', '3.6', 'mEq/L', '3.3 to 5.1'), v('Urea nitrogen', '24', 'mg/dL', '6 to 20', 'H'),
+          v('Creatinine', '1.1', 'mg/dL', '0.5 to 1.2'), v('Glucose', '162', 'mg/dL', '70 to 100', 'H'), v('Calcium, total', '8.9', 'mg/dL', '8.4 to 10.3'),
+          v('Alanine aminotransferase (ALT)', '41', 'IU/L', '0 to 40', 'H'), v('Bilirubin, total', '0.8', 'mg/dL', '0 to 1.5'), v('Lactate', '1.6', 'mmol/L', '0.5 to 2.0'), na('Albumin')])],
+        seen: true },
+      { reasoning: 'Lipase about forty times normal confirms pancreatitis. ALT only slightly raised and bilirubin normal, but a first episode still needs gallstones excluded: ultrasound, not CT.',
+        text: 'Your blood tests show inflammation of the pancreas. I would like an ultrasound to look for gallstones.',
+        orders: { 'Imaging': ['*Abdominal ultrasound | right upper quadrant, gallstones in first episode of pancreatitis'] },
+        results: [report('Imaging', 'Gallbladder is distended with multiple small mobile stones. No gallbladder wall thickening or pericholecystic fluid. Common bile duct 4 mm. Pancreas partly obscured by bowel gas.')],
+        reply: 'Okay, thank you, doctor.', seen: true },
+      { noOrders: true, finish: true, text: 'This looks like acute pancreatitis, most likely from gallstones. We will admit you for fluids and pain control and ask the surgeons to see you about the gallbladder.' },
+    ],
+    B: [
+      { reasoning: 'Severe epigastric pain: cover pancreatitis, perforation and ischaemia at once with CT, and start broad antibiotics.',
+        text: 'I am going to order blood tests, a CT scan of your abdomen and start some medications.',
+        orders: { 'Blood tests': ['Complete blood count with differential | WBC, hemoglobin, platelets, differential', 'Basic metabolic panel | sodium, potassium, chloride, bicarbonate, BUN, creatinine, glucose, calcium',
+          'Hepatic function panel | AST, ALT, ALP, total bilirubin, albumin', 'Lipase', '*Triglycerides'],
+          'Imaging': ['*CT abdomen | with intravenous contrast, epigastric pain'],
+          'Medications': ["Lactated ringer's | 1000 mL, intravenous", 'Ondansetron | 4 mg, intravenous', '*Hydromorphone | 0.5 mg, intravenous', '*Meropenem | 1 g, intravenous, 3 times a day'] },
+        results: [lab([v('Lipase', '2450', 'U/L', '0 to 60', 'H'), v('White blood cells', '13.8', 'K/uL', '4.0 to 11.0', 'H'), v('Urea nitrogen', '24', 'mg/dL', '6 to 20', 'H'),
+          v('Creatinine', '1.1', 'mg/dL', '0.5 to 1.2'), na('Triglycerides')]),
+          report('Imaging', 'Peripancreatic fat stranding and fluid consistent with acute interstitial pancreatitis. No necrosis. Cholelithiasis. No free air.')],
+        finish: true, seen: false, text: 'Final assessment: acute pancreatitis.' },
+    ],
+  },
+  final: { A: 'Acute gallstone pancreatitis', B: 'Acute pancreatitis' },
+  history: { A: [{ turn: 1, text: 'Ask about onset, radiation, alcohol and gallstones before examining.' }], B: [] },
+};
+
 export const DEMO_CASES = [
-  makeCase({
-    id: 'DEMO-P1', practice: false,
-    presentation: 'Chief complaint: epigastric pain. 52-year-old man. Triage vitals: T 37.4 C, HR 104, BP 138/86, RR 20, SpO2 97% on room air. Pain 8/10.',
-    conv: {
-      A: [
-        A('Hello, I am the emergency physician on duty. I understand you have pain in the upper part of your stomach. When did it start, and does it go anywhere?'),
-        P('It started last night after dinner, maybe ten hours ago. It goes straight through to my back. I have thrown up four times.'),
-        A('Thank you. Do you drink alcohol, and have you had anything like this before? Any gallstones?'),
-        P('I drink most days, about six beers. Never had this before. Nobody ever said anything about gallstones.'),
-        A('Any medical problems or regular medicines? Any allergies?'),
-        P('High blood pressure, I take lisinopril. No allergies.'),
-        R('physical examination', 'Uncomfortable, leaning forward. Mucous membranes dry. Epigastric tenderness with voluntary guarding, no rebound. Murphy sign negative. No jaundice. Lungs clear.'),
-      ],
-      B: [
-        A('Hello, I am the emergency physician. Tell me about the pain you came in with.'),
-        P('Upper belly, since last night, going through to my back. Vomited a few times.'),
-        A('I am sorry to hear that. How much alcohol do you usually drink, and have you had fevers?'),
-        P('About six beers most days. No fever that I know of.'),
-        A('Any history of high triglycerides, gallstones, or recent new medications?'),
-        P('Not that I know of. Only lisinopril for blood pressure.'),
-        R('physical examination', 'Uncomfortable, leaning forward. Mucous membranes dry. Epigastric tenderness with voluntary guarding, no rebound. Murphy sign negative. No jaundice. Lungs clear.'),
-      ],
-    },
-    orders: {
-      A: {
-        'Blood tests': ['Complete Blood Count (CBC)', 'Comprehensive Metabolic Panel (CMP)', 'Lipase', '*Lactate'],
-        'Imaging': ['*Ultrasound, right upper quadrant'],
-        'Medications': ['lactated ringer\'s', 'ondansetron', '*morphine'],
-      },
-      B: {
-        'Blood tests': ['Complete Blood Count (CBC)', 'Comprehensive Metabolic Panel (CMP)', 'Lipase', '*Triglycerides'],
-        'Imaging': ['*CT abdomen and pelvis with IV contrast'],
-        'Medications': ['lactated ringer\'s', 'ondansetron', '*hydromorphone', '*meropenem'],
-      },
-    },
-  }),
-  makeCase({
-    id: 'DEMO-01',
-    presentation: 'Chief complaint: shortness of breath. 67-year-old woman. Triage vitals: T 37.2 C, HR 112, BP 124/78, RR 24, SpO2 91% on room air.',
-    conv: {
-      A: [
-        A('Hello, I am the emergency physician. I understand you are short of breath. When did it start?'),
-        P('This morning, suddenly, when I got up to go to the bathroom. It hurts on the right side when I breathe in.'),
-        A('Have you had any recent surgery, travel, or time in bed? Any leg swelling?'),
-        P('I had my right knee replaced two weeks ago. My right calf has been a bit swollen and sore since yesterday.'),
-        A('Any cough, fever, or coughing up blood? Any heart or lung disease? Blood thinners?'),
-        P('No cough or fever. I have high cholesterol. After the surgery they gave me injections for ten days, but those finished.'),
-        R('physical examination', 'Anxious, speaking in full sentences. Tachycardic, regular. Lungs clear bilaterally. Right calf 3 cm larger than left, tender. Healing right knee incision without erythema.'),
-      ],
-      B: [
-        A('Hello. What brings you in today?'),
-        P('I can\'t catch my breath since this morning, and there is a sharp pain on the right when I breathe.'),
-        A('Have you had a cough, fever, or chills? Anyone sick at home?'),
-        P('No cough, no fever. My grandson had a cold last week.'),
-        A('Any medical problems, recent hospital stays, or allergies?'),
-        P('I had a knee replacement two weeks ago. High cholesterol. No allergies.'),
-        R('physical examination', 'Anxious, speaking in full sentences. Tachycardic, regular. Lungs clear bilaterally. Right calf 3 cm larger than left, tender. Healing right knee incision without erythema.'),
-      ],
-    },
-    orders: {
-      A: {
-        'Blood tests': ['Complete Blood Count (CBC)', 'Basic Metabolic Panel (BMP)', 'Troponin T', '*BNP'],
-        'Imaging': ['*CT pulmonary angiogram', 'Chest X-ray'],
-        'Procedures': ['Electrocardiogram (ECG)'],
-        'Medications': ['*heparin infusion'],
-      },
-      B: {
-        'Blood tests': ['Complete Blood Count (CBC)', 'Basic Metabolic Panel (BMP)', 'Troponin T', '*Procalcitonin'],
-        'Imaging': ['Chest X-ray'],
-        'Microbiology': ['*Blood culture x2'],
-        'Procedures': ['Electrocardiogram (ECG)'],
-        'Medications': ['*ceftriaxone', '*azithromycin'],
-      },
-    },
-  }),
+  makeCase(PANC),
   makeCase({
     id: 'DEMO-02',
-    presentation: 'Chief complaint: abdominal pain. 23-year-old man. Triage vitals: T 38.0 C, HR 98, BP 128/74, RR 16, SpO2 99% on room air. Pain 6/10.',
+    patient: { sex: 'Male', age: '23' },
+    presentation: 'The patient you are now seeing has primary symptoms: abdominal pain, right lower quadrant.',
     conv: {
       A: [
         A('Hello, I am the emergency physician. Where is your pain, and how did it start?'),
         P('It started around my belly button yesterday afternoon and now it is down on the right side. It hurts when the car goes over bumps.'),
-        A('Have you been eating? Any vomiting, diarrhoea, or pain passing urine?'),
-        P('Not hungry at all. Vomited once. No diarrhoea, urine is fine.'),
-        R('physical examination', 'Right lower quadrant tenderness with rebound and guarding. Rovsing sign positive. No costovertebral angle tenderness. Genital exam normal.'),
+        A('Have you been eating? Any vomiting, diarrhoea, or pain passing urine? Any allergies?'),
+        P('Not hungry at all. Vomited once. No diarrhoea, urine is fine. I am allergic to penicillin, I got a rash as a kid.'),
+        R('physical examination', 'Right lower quadrant tenderness with rebound and guarding. Rovsing sign positive. No costovertebral angle tenderness.'),
       ],
       B: [
         A('Hello. Tell me about your belly pain.'),
         P('Started yesterday around the middle, now it is in the lower right. I feel hot and not hungry.'),
-        A('Any urinary symptoms, testicular pain, or previous surgeries? Any allergies?'),
-        P('No, none of that. I am allergic to penicillin, I got a rash as a kid.'),
-        R('physical examination', 'Right lower quadrant tenderness with rebound and guarding. Rovsing sign positive. No costovertebral angle tenderness. Genital exam normal.'),
+        R('physical examination', 'Right lower quadrant tenderness with rebound and guarding. Rovsing sign positive. No costovertebral angle tenderness.'),
       ],
     },
-    orders: {
-      A: {
-        'Blood tests': ['Complete Blood Count (CBC)', 'Basic Metabolic Panel (BMP)', '*C-Reactive Protein'],
-        'Urine tests': ['Urinalysis'],
-        'Imaging': ['*CT abdomen and pelvis with IV contrast'],
-        'Medications': ['ondansetron', '*morphine'],
-      },
-      B: {
-        'Blood tests': ['Complete Blood Count (CBC)', 'Basic Metabolic Panel (BMP)', '*Lipase'],
-        'Urine tests': ['Urinalysis'],
-        'Imaging': ['*Ultrasound, abdomen (limited, right lower quadrant)'],
-        'Medications': ['ondansetron', '*piperacillin-tazobactam', '*ketorolac'],
-      },
-    },
-  }),
-  makeCase({
-    id: 'DEMO-03',
-    presentation: 'Chief complaint: confusion. 78-year-old woman brought by her daughter. Triage vitals: T 38.6 C, HR 108, BP 98/58, RR 22, SpO2 95% on room air.',
-    conv: {
+    steps: {
       A: [
-        A('Hello, I am the emergency physician. Can you tell me what has been happening?'),
-        P('(Daughter) She has been mixed up since this morning. Two days ago she said it burned when she urinated.'),
-        A('Has she fallen or hit her head? Any weakness on one side, or trouble speaking?'),
-        P('(Daughter) No falls. She is just sleepy and confused, moving everything fine.'),
-        A('What medical problems does she have, and what does she take?'),
-        P('(Daughter) Diabetes, on metformin. High blood pressure. Allergic to sulfa.'),
-        R('physical examination', 'Drowsy, oriented to person only. No focal neurological deficit. Neck supple. Suprapubic tenderness, right costovertebral angle tenderness. Mucous membranes dry.'),
+        { text: 'I will check your blood and urine and get a scan of your abdomen.',
+          orders: { 'Blood tests': ['Complete blood count with differential | WBC, hemoglobin, platelets, differential', 'Basic metabolic panel | sodium, potassium, chloride, bicarbonate, BUN, creatinine, glucose', '*C-reactive protein'],
+            'Urine tests': ['Urinalysis with microscopy | specific gravity, pH, protein, glucose, ketone, blood, leukocytes, nitrite, WBC, RBC'],
+            'Imaging': ['*CT abdomen | with intravenous contrast, suspected appendicitis'], 'Medications': ['Ondansetron | 4 mg, intravenous'] },
+          results: [lab([v('White blood cells', '14.2', 'K/uL', '4.0 to 11.0', 'H'), v('C-reactive protein', '48', 'mg/L', '0 to 5', 'H'), v('Creatinine', '0.9', 'mg/dL', '0.5 to 1.2')]),
+            urine([v('Leukocytes', 'NEG'), v('Nitrite', 'NEG'), v('Blood', 'NEG')]),
+            report('Imaging', 'Dilated, fluid-filled appendix measuring 11 mm with periappendiceal fat stranding. No abscess. No free air.')], seen: true },
+        { noOrders: true, finish: true, text: 'The scan shows appendicitis. I will ask the surgical team to see you.' },
       ],
       B: [
-        A('Hello. What brings your mother in today?'),
-        P('(Daughter) She is confused since this morning and has a fever. She mentioned burning with urination.'),
-        A('Any headache, stiff neck, or new medicines?'),
-        P('(Daughter) No. Same medicines: metformin and something for blood pressure.'),
-        R('physical examination', 'Drowsy, oriented to person only. No focal neurological deficit. Neck supple. Suprapubic tenderness, right costovertebral angle tenderness. Mucous membranes dry.'),
+        { text: 'You likely have appendicitis. I am booking you for surgery and starting antibiotics.',
+          orders: { 'Blood tests': ['Complete blood count with differential | WBC, hemoglobin, platelets, differential', 'Basic metabolic panel | sodium, potassium, chloride, bicarbonate, BUN, creatinine, glucose'],
+            'Urine tests': ['Urinalysis with microscopy | specific gravity, pH, protein, glucose, ketone, blood, leukocytes, nitrite, WBC, RBC'],
+            'Procedures': ['*Laparoscopic appendectomy'], 'Medications': ['Ondansetron | 4 mg, intravenous', '*Piperacillin-tazobactam | 4.5 g, intravenous'] },
+          results: [lab([v('White blood cells', '14.2', 'K/uL', '4.0 to 11.0', 'H'), v('Creatinine', '0.9', 'mg/dL', '0.5 to 1.2')]),
+            urine([v('Leukocytes', 'NEG'), v('Nitrite', 'NEG'), na('Ketone')]),
+            report('Procedures', "Procedure requested 'laparoscopic appendectomy'.")], finish: true, seen: false, text: 'Final diagnosis: acute appendicitis.' },
       ],
     },
-    orders: {
-      A: {
-        'Blood tests': ['Complete Blood Count (CBC)', 'Comprehensive Metabolic Panel (CMP)', '*Lactate'],
-        'Urine tests': ['Urinalysis', '*Urine culture'],
-        'Microbiology': ['*Blood culture x2'],
-        'Medications': ['*ceftriaxone', '*sodium chloride 0.9% bolus'],
-      },
-      B: {
-        'Blood tests': ['Complete Blood Count (CBC)', 'Comprehensive Metabolic Panel (CMP)'],
-        'Urine tests': ['Urinalysis'],
-        'Imaging': ['*CT head without contrast'],
-        'Medications': ['*ciprofloxacin'],
-      },
-    },
+    final: { A: 'Acute appendicitis', B: 'Acute appendicitis' },
   }),
+  makeCase({ ...PANC, id: 'DEMO-P1X', advisor: true }),
 ];
 
 // Demo-only disagreement set for the adjudicator view (invented ratings).
 export const DEMO_ADJUDICATION = {
-  'DEMO-01': {
-    // i05 blood culture, i06 ceftriaxone, i07 azithromycin. N vs E is never adjudicated (both appropriate).
-    items: { i05: { r1: 'X', r2: 'E' }, i06: { r1: 'H', r2: 'X' }, i07: { r1: 'H', r2: 'X' } },
+  'DEMO-P1': {
+    // i05 CT abdomen, i07 meropenem (workup B). Invented ratings.
+    items: { i05: { r1: 'X', r2: 'E' }, i07: { r1: 'H', r2: 'X' } },
     workups: { B: { r1: 'severe', r2: 'moderate' } },
   },
 };

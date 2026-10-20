@@ -1,6 +1,7 @@
 import { h, mount, toast, confirmDialog } from '../dom.js';
 import { ORDER_SCALES, HARM_LEVELS } from '../schema.js';
 import { panelsOf, conversationColumn, sortedLines, cleanCase, noPrimarySymptom, NO_SYMPTOM_NOTE } from './case.js';
+import { patientLine, encounterColumn, stepChip } from './encounter.js';
 
 // The adjudicator sees the case and, for each disagreement only, the two ratings labelled
 // "Rater 1" and "Rater 2" (never names), and records the final value.
@@ -48,17 +49,21 @@ const errLabel = (code) => ({ yes: 'Yes', no: 'No' }[code] || harmLabel(code)); 
   function render() {
     const panels = panelsOf(caseDoc);
     mount(body,
-      h('div', { class: 'card presentation' }, h('h2', { class: 'card-title' }, 'At arrival'), h('p', {}, caseDoc.presentation),
+      h('div', { class: 'card presentation' }, h('h2', { class: 'card-title' }, 'At arrival'),
+        caseDoc.display === 'v3' ? h('p', { class: 'patient-line' }, patientLine(caseDoc.patient)) : null,
+        h('p', {}, caseDoc.presentation),
         noPrimarySymptom(caseDoc.presentation) ? h('p', { class: 'presentation-note' }, NO_SYMPTOM_NOTE) : null),
-      h('details', { class: 'block' }, h('summary', {}, 'Conversation before the first order'),
-        h('div', { class: 'two-col conv-cols' }, conversationColumn('A', caseDoc.workups.A.conversation), conversationColumn('B', caseDoc.workups.B.conversation))),
+      h('details', { class: 'block' }, h('summary', {}, caseDoc.display === 'v3' ? 'The two encounters' : 'Conversation before the first order'),
+        h('div', { class: 'two-col conv-cols' }, caseDoc.display === 'v3'
+          ? [encounterColumn('A', caseDoc.workups.A), encounterColumn('B', caseDoc.workups.B)]
+          : [conversationColumn('A', caseDoc.workups.A.conversation), conversationColumn('B', caseDoc.workups.B.conversation)])),
       h('details', { class: 'block', open: true }, h('summary', {}, 'All orders'),
         h('div', { class: 'orders' }, panels.map((panel) => h('div', { class: 'panel-row' },
           h('h4', { class: 'panel-name' }, panel),
           h('div', { class: 'panel-cells' }, ['A', 'B'].map((w) => {
             const p = (caseDoc.workups[w].orders || []).find((x) => x.panel === panel);
             return h('ul', { class: 'cell' }, sortedLines(p?.lines).map((l) => h('li', { class: `order ${l.item ? (set.items?.[l.item] ? 'order-disputed' : 'order-rated-plain') : 'order-shared'}` },
-              l.item ? h('span', { class: `only only-${w}` }, `${w} only`) : null, h('span', { class: 'order-text' }, l.text))));
+              l.item ? h('span', { class: `only only-${w}` }, `${w} only`) : null, h('span', { class: 'order-text' }, l.text), stepChip(l.step))));
           })))))),
       h('section', { class: 'block' },
         h('h2', { class: 'block-title' }, `Disagreements (${itemIds.length + wkIds.length})`),

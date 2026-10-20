@@ -15,12 +15,13 @@ export const CHANGES = {
   'G1.9-draft': ['Guidelines shown as a short walkthrough; rating labels use standard terms (Necessary, Appropriate, Low value, Harmful, Unable to assess); no practice case.'],
   'G1.10-draft': ['Rated items are orders (lab components are grouped into the order they belong to); the preference has five levels.'],
   'G2.0-draft': ['Each workup is now checked for an important error (where, severity, likelihood); for Necessary orders you say whether the other workup meets the need another way; one question on both workups; Cannot compare and a main reason for the preference.'],
+  'G3.0': ['Each workup is now shown as one encounter in time order, with every step, the results the hospital record returned and the final diagnosis. Laboratory orders are grouped as clinicians order them. The patient\'s sex and age are shown. Rate each order on what was known when it was placed, not on its result. If a workup has an important error, you also choose its type. Overall quality shows what each level means.'],
   'G2.1-draft': ['Each workup gets an overall quality rating (1 Very poor to 5 Excellent). Important error: three examples (something needed left out; a treatment started before the test it depends on; an order that could harm this patient), and mark an error even if harm is unlikely. One question is added (overall quality); the others are unchanged.'],
 };
 
 export const GUIDELINES = {
   version: GUIDELINES_VERSION,
-  task: 'Each case is one simulated emergency patient that an AI agent worked up twice (A and B). Judge the initial orders as the emergency physician.',
+  task: 'Each case is one simulated emergency patient that an AI agent worked up twice (A and B). Compare the two workups as the emergency physician.',
   // One example per rating (invented patients, unlike the study cases).
   examples: {
     N: 'Worst-ever headache 2 h ago: head CT',

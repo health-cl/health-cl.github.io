@@ -1,8 +1,8 @@
 // Scales, profile fields and validation. One place, so the form, the guidelines and the
 // export script all use the same codes. Codes are what is stored; labels are what raters see.
 
-export const APP_VERSION = '2.0.11';
-export const GUIDELINES_VERSION = 'G2.1-draft';
+export const APP_VERSION = '3.0.0';
+export const GUIDELINES_VERSION = 'G3.0';
 
 // Per-order rating. v2 = protocol draft section 3 (adds H). v1 = the declared packet form.
 export const ORDER_SCALES = {
@@ -70,9 +70,23 @@ export const LIKELIHOOD = [
 export const ALT_OPTIONS = [{ code: 'yes', label: 'Yes' }, { code: 'no', label: 'No' }, { code: 'unsure', label: 'Unsure' }];
 // Each workup: an error that should be corrected before care proceeds (including anything important left out).
 // G2.1 (Amendment E): overall quality of each workup for this patient, a standard 5-point rating, asked of every workup.
+// G3.0 (Amendment I, I4.2): labels unchanged, anchors added and shown as text.
 export const WORKUP_QUALITY = [
-  { code: '1', label: '1 Very poor' }, { code: '2', label: '2 Poor' }, { code: '3', label: '3 Acceptable' },
-  { code: '4', label: '4 Good' }, { code: '5', label: '5 Excellent' },
+  { code: '1', label: '1 Very poor', anchor: 'Unsafe or incoherent; you would stop it.' },
+  { code: '2', label: '2 Poor', anchor: 'Important problems a supervisor must correct.' },
+  { code: '3', label: '3 Acceptable', anchor: 'Reasonable, with minor problems.' },
+  { code: '4', label: '4 Good', anchor: 'What a competent emergency physician would do.' },
+  { code: '5', label: '5 Excellent', anchor: 'Nothing to change.' },
+];
+// G3.0 (Amendment I, I4.1): type of an important error, multi-select, required when a workup has one.
+export const ERROR_TYPES = [
+  { code: 'history', label: 'History taking', desc: 'A question that should have been asked, or a reply that was not followed up.' },
+  { code: 'reasoning', label: 'Diagnostic reasoning', desc: 'No differential, a wrong or premature diagnosis, a result that was ignored.' },
+  { code: 'tests', label: 'Test choice', desc: 'A needed test left out, or a test this patient does not need.' },
+  { code: 'sequence', label: 'Timing or sequence', desc: 'Ordered before the result it depends on, or two tests where one should come first.' },
+  { code: 'treatment', label: 'Treatment', desc: 'A treatment that is wrong, unsafe, premature or missing.' },
+  { code: 'scope', label: 'Decision for another service', desc: 'A decision the emergency physician would leave to a consultant, such as an operation.' },
+  { code: 'other', label: 'Other', desc: 'Another kind of error (add a comment if useful).' },
 ];
 export const PLAN_ERROR = [{ code: 'yes', label: 'Yes' }, { code: 'no', label: 'No' }, { code: 'unsure', label: 'Unable to assess' }];
 export const SEVERITY = HARM_LEVELS.filter((x) => x.code !== 'none');
@@ -193,6 +207,7 @@ export function missingForSubmit(caseDoc, ann, cfg) {
     if (!wk.error) missing.push(`important-error question for workup ${w}`);
     else if (wk.error === 'yes') {
       if (!wk.links || !Object.keys(wk.links).length) missing.push(`where the error is, workup ${w}`);
+      if (cfg?.errorTypes !== false && caseDoc.display === 'v3' && (!wk.types || !Object.keys(wk.types).length)) missing.push(`type of error, workup ${w}`);
       if (!wk.harm) missing.push(`severity, workup ${w}`);
       if (!wk.likelihood) missing.push(`likelihood, workup ${w}`);
     }

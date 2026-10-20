@@ -60,9 +60,11 @@ export async function renderQueue(main, ctx) {
     return h('ol', { class: 'case-list' }, list.map((a, i) => {
       const st = stateOf(a);
       // Cases open in order: everything submitted, plus the first one not yet submitted.
-      const open = !locked && (st === 'submitted' || !reachedOpen);
-      if (st !== 'submitted' && !locked) reachedOpen = true;
-      const label = a.practice ? `Practice ${i + 1}` : isNoteId(a.caseId) ? `Notes ${i + 1}` : `Case ${offset + i + 1}`;
+      // Advisor slot (Amendment I): every case opens at any time.
+      const open = a.free || (!locked && (st === 'submitted' || !reachedOpen));
+      if (st !== 'submitted' && !locked && !a.free) reachedOpen = true;
+      const label = a.practice ? `Practice ${i + 1}` : isNoteId(a.caseId) ? `Notes ${i + 1}`
+        : a.free ? `Case ${offset + i + 1} · ${a.caseId.replace(/X$/, '')}` : `Case ${offset + i + 1}`;
       const pill = { new: ['Not started', 'pill'], draft: ['In progress', 'pill pill-draft'], submitted: ['Submitted', 'pill pill-done'] }[st];
       return h('li', { class: `case-row${open ? '' : ' is-locked'}${next && a.caseId === next.caseId ? ' is-next' : ''}` },
         h('span', { class: 'case-num' }, label),
@@ -74,7 +76,8 @@ export async function renderQueue(main, ctx) {
     }));
   }
 
-  const allDone = practiceDone && studyDone && notes.every((a) => stateOf(a) === 'submitted') && assignments.length > 0;
+  const advisorSlot = assignments.length > 0 && assignments.every((a) => a.free);
+  const allDone = !advisorSlot && practiceDone && studyDone && notes.every((a) => stateOf(a) === 'submitted') && assignments.length > 0;
   const debrief = allDone ? await store.getDebrief(state.user.uid) : null;
   const debriefOpen = allDone && !debrief?.submittedAt;
   function debriefCard() {
@@ -101,7 +104,8 @@ export async function renderQueue(main, ctx) {
       h('div', { class: 'page-head split' },
         h('div', {},
           h('h1', {}, debriefOpen ? 'One last step' : practiceDone ? `${submitted} of ${study.length} cases submitted` : 'Practice first'),
-          h('p', { class: 'lede' }, debriefOpen ? 'Everything is submitted. Please answer the short questions below to finish.' : practiceDone
+          advisorSlot ? h('p', { class: 'lede' }, 'Advisor view: every case is open; read them in any order. Answers are optional and are not part of the analysis.') : null,
+          advisorSlot ? null : h('p', { class: 'lede' }, debriefOpen ? 'Everything is submitted. Please answer the short questions below to finish.' : practiceDone
             ? (remainingMin ? `About ${remainingMin < 90 ? `${remainingMin} minutes` : `${Math.round(remainingMin / 6) / 10} hours`} left. You can stop at any point; answers are saved.` : 'Everything is submitted. Thank you.')
             : 'Practice answers are not analysed.')),
         next ? h('button', { class: 'btn btn-primary btn-lg', type: 'button', onclick: () => go(`${isNoteId(next.caseId) ? 'note' : 'case'}/${encodeURIComponent(next.caseId)}`) },

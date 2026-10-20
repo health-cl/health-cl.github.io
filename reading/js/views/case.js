@@ -2,7 +2,8 @@ import { h, mount, toast, confirmDialog, fmtDuration } from '../dom.js';
 import { isNoteId } from './note.js';
 import { openTutorialDialog } from './tutorial.js';
 import { withAbbr, abbreviationsIn } from '../abbreviations.js';
-import { ORDER_SCALES, HARM_LEVELS, HARM_REASONS, LIKELIHOOD, PREFERENCE5, ALT_OPTIONS, PLAN_ERROR, SEVERITY, COMMON_OMISSION, PREF_REASONS, WORKUP_QUALITY, missingForSubmit, APP_VERSION, GUIDELINES_VERSION } from '../schema.js';
+import { ORDER_SCALES, HARM_LEVELS, HARM_REASONS, LIKELIHOOD, PREFERENCE5, ALT_OPTIONS, PLAN_ERROR, SEVERITY, COMMON_OMISSION, PREF_REASONS, WORKUP_QUALITY, ERROR_TYPES, missingForSubmit, APP_VERSION, GUIDELINES_VERSION } from '../schema.js';
+import { patientLine, encounterColumn, stepChip, lineDetail } from './encounter.js';
 
 export const PANEL_ORDER = ['Blood tests', 'Urine tests', 'Microbiology', 'Imaging', 'Procedures', 'Medications'];
 const IDLE_LIMIT_S = 120;
@@ -40,7 +41,9 @@ export function sharedLine(line) {
       : line.shared === 'elsewhere' ? ['in both · not rated', `${ctx} Listed under ${line.otherPanel} in the other workup.`]
         : ['in both · not rated', ctx];
   return h('li', { class: `order order-shared${line.unrated ? ' order-unrated' : ''}`, title: tag[1] },
-    h('span', { class: 'order-text' }, line.text), h('span', { class: 'both' }, tag[0]));
+    h('span', { class: 'order-main' }, h('span', { class: 'order-text' }, line.text), stepChip(line.step),
+      line.onlyHere ? h('span', { class: 'order-detail' }, `Only here: ${line.onlyHere}`) : null),
+    h('span', { class: 'both' }, tag[0]));
 }
 
 // The agent's turns are long (greetings, preambles). By default only the questions it asked are shown; the full
@@ -118,8 +121,8 @@ export async function renderCase(main, ctx, caseId) {
   const asg = assignments[idx];
   if (!preview && !asg) { toast('This case is not assigned to you.', 'error'); return go(''); }
 
-  if (!preview) {
-    // Enforce reading order: practice first, then study cases in the assigned order.
+  if (!preview && !asg.free) {
+    // Enforce reading order: practice first, then study cases in the assigned order (not for the advisor slot, Amendment I).
     const practice = assignments.filter((a) => a.practice);
     const study = assignments.filter((a) => !a.practice && !isNoteId(a.caseId));
     const done = (a) => progress[a.caseId]?.state === 'submitted';
@@ -138,6 +141,8 @@ export async function renderCase(main, ctx, caseId) {
   }
   if (!caseDoc) { toast('Case not found.', 'error'); return go(''); }
   caseDoc = cleanCase(caseDoc);
+  const v3 = caseDoc.display === 'v3';                 // Amendment I: encounter view, clinical orders, error types
+  const advisor = !!caseDoc.advisor || !!asg?.free;   // advisor slot: any order, answers optional, reasoning shown
   ann = ann || {};
   ann.items = ann.items || {};
   caseDoc.items = caseDoc.items || {}; // Firebase drops empty objects (cases with no one-sided order)
@@ -240,14 +245,17 @@ export async function renderCase(main, ctx, caseId) {
 
 
 
+  const lineOf = {};
   function itemRow(line, w) {
     const id = line.item;
+    lineOf[id] = line;
     const row = h('li', {
       class: `order order-rated${id === current && !locked ? ' is-current' : ''}${ann.items[id]?.r ? ' is-done' : ''}`,
       tabindex: locked ? null : '0', dataset: { item: id },
       onfocus: () => setCurrent(id, false), onclick: () => setCurrent(id, false),
     },
-    h('div', { class: 'order-line' }, h('span', { class: 'order-text' }, line.text)),
+    h('div', { class: 'order-line' }, h('span', { class: 'order-text' }, line.text), stepChip(line.step)),
+    lineDetail(line),
     ratingButtons(id),
     ann.items[id]?.r === 'N' ? altButtons(id) : null,
     ann.items[id]?.r === 'H' ? reasonButtons(id) : null,
@@ -261,7 +269,7 @@ export async function renderCase(main, ctx, caseId) {
     const old = rowEls[id];
     if (!old) return;
     const w = caseDoc.items[id].side;
-    const line = { item: id, text: old.querySelector('.order-text').textContent };
+    const line = lineOf[id] || { item: id, text: old.querySelector('.order-text').textContent };
     const fresh = itemRow(line, w);
     old.replaceWith(fresh);
   }
@@ -315,7 +323,8 @@ export async function renderCase(main, ctx, caseId) {
     h('div', { class: 'orders-head' },
       ['A', 'B'].map((w) => h('h3', { class: 'col-head' }, h('span', { class: `side side-${w}` }, w), `Workup ${w}`))),
     panels.map((panel) => h('div', { class: `panel-row${['A', 'B'].every((w) => linesOf(w, panel).every(isBoth)) ? ' panel-all-shared' : ''}` },
-      h('h4', { class: 'panel-name' }, panel),
+      h('h4', { class: 'panel-name' }, panel, v3 && (panel === 'Procedures' || panel === 'Medications')
+        ? h('span', { class: 'panel-note' }, 'The simulation let the agent order these directly. In practice the emergency physician would usually consult the treating service.') : null),
       h('div', { class: 'panel-cells' }, ['A', 'B'].map((w) => {
         const lines = linesOf(w, panel);
         const both = lines.filter(isBoth).length;
@@ -350,14 +359,23 @@ export async function renderCase(main, ctx, caseId) {
       h('legend', {}, h('span', { class: `side side-${w}` }, w), `Workup ${w}`),
       h('div', { class: 'field-row' },
         h('span', { class: 'row-label' }, 'Overall quality'),
-        seg(`quality-${w}`, WORKUP_QUALITY, wk.quality, (code) => setWorkup(w, { quality: code }), 'seg-wrap')),
+        h('div', { class: 'seg seg-wrap seg-anchor', role: 'radiogroup', 'aria-label': `Overall quality, workup ${w}` },
+          WORKUP_QUALITY.map((o) => h('label', { class: `seg-opt${wk.quality === o.code ? ' is-on' : ''}` },
+            h('input', { type: 'radio', name: `quality-${w}`, value: o.code, checked: wk.quality === o.code, disabled: locked, onchange: () => setWorkup(w, { quality: o.code }) }),
+            h('span', { class: 'q-lab' }, o.label), o.anchor ? h('span', { class: 'q-anchor' }, o.anchor) : null)))),
       h('div', { class: 'field-row' },
         h('span', { class: 'row-label' }, 'Important error'),
-        seg(`error-${w}`, PLAN_ERROR, wk.error, (code) => setWorkup(w, code === 'yes' ? { error: code } : { error: code, links: null, harm: null, likelihood: null }))),
+        seg(`error-${w}`, PLAN_ERROR, wk.error, (code) => setWorkup(w, code === 'yes' ? { error: code } : { error: code, links: null, types: null, harm: null, likelihood: null }))),
       wk.error === 'yes' ? [
         h('div', { class: 'field-row' }, h('span', { class: 'row-label' }, 'Where'),
           h('div', { class: 'why why-wrap' }, sideItems.map((id) => linkChip(id, caseDoc.items[id].name)),
             linkChip('missing', 'A missing action'), linkChip('shared', 'An order in both workups'))),
+        v3 ? h('div', { class: 'field-row' }, h('span', { class: 'row-label' }, 'Type of error'),
+          h('div', { class: 'why why-wrap' }, ERROR_TYPES.map((t) => {
+            const on = !!(wk.types || {})[t.code];
+            return h('button', { type: 'button', class: `why-btn type-btn${on ? ' is-on' : ''}`, disabled: locked, title: t.desc, 'aria-pressed': on ? 'true' : 'false',
+              onclick: () => setWorkup(w, { types: { [t.code]: on ? null : true } }) }, t.label);
+          }))) : null,
         h('div', { class: 'field-row' }, h('span', { class: 'row-label' }, 'Severity'),
           seg(`harm-${w}`, SEVERITY, wk.harm, (code) => setWorkup(w, { harm: code }), 'seg-harm')),
         sev ? h('p', { class: 'harm-hint' }, sev.potential) : null,
@@ -370,10 +388,10 @@ export async function renderCase(main, ctx, caseId) {
   function setWorkup(w, patch) {
     const cur = { ...(ann.workups[w] || {}) };
     for (const [k, v] of Object.entries(patch)) {
-      if (k === 'links' && v) {
-        cur.links = { ...(cur.links || {}) };
-        for (const [lk, lv] of Object.entries(v)) { if (lv === null) delete cur.links[lk]; else cur.links[lk] = lv; }
-        if (!Object.keys(cur.links).length) delete cur.links;
+      if ((k === 'links' || k === 'types') && v) {
+        cur[k] = { ...(cur[k] || {}) };
+        for (const [lk, lv] of Object.entries(v)) { if (lv === null) delete cur[k][lk]; else cur[k][lk] = lv; }
+        if (!Object.keys(cur[k]).length) delete cur[k];
       } else if (v === null) delete cur[k]; else cur[k] = v;
     }
     ann.workups[w] = cur;
@@ -444,7 +462,8 @@ export async function renderCase(main, ctx, caseId) {
           () => setCurrent(incomplete[0] || order[0])),
         ['A', 'B'].map((w) => {
           const wk = ann.workups[w] || {};
-          const ok = wk.quality && wk.error && (wk.error !== 'yes' || (wk.links && Object.keys(wk.links).length && wk.harm && wk.likelihood));
+          const ok = wk.quality && wk.error && (wk.error !== 'yes' || (wk.links && Object.keys(wk.links).length && wk.harm && wk.likelihood
+            && (!v3 || (wk.types && Object.keys(wk.types).length))));
           return chk(ok, `Workup ${w}`, () => harmBoxes[w].scrollIntoView({ behavior: 'smooth', block: 'center' }));
         }),
         chk(!!ann.commonOmission, 'Missing in both', () => bothWrap.scrollIntoView({ behavior: 'smooth', block: 'center' })),
@@ -514,6 +533,22 @@ export async function renderCase(main, ctx, caseId) {
     if (!locked && !submitted) save({ activeSeconds: active });
   });
 
+  function patientCard() {
+    const abbr = abbreviationsIn([caseDoc.presentation, ...['A', 'B'].flatMap((w) => (caseDoc.workups?.[w]?.conversation || []).map((m) => m.text))]);
+    return h('div', { class: 'card patient' },
+      h('div', { class: 'patient-main' },
+        h('div', { class: 'patient-id' }, h('span', { class: 'card-title' }, 'Patient'), h('p', { class: 'patient-line' }, patientLine(caseDoc.patient))),
+        h('div', { class: 'patient-arrival' }, h('span', { class: 'card-title' }, 'On arrival'), h('p', { class: 'arrival-text' }, withAbbr(caseDoc.presentation)),
+          noPrimarySymptom(caseDoc.presentation) ? h('p', { class: 'presentation-note' }, NO_SYMPTOM_NOTE) : null)),
+      h('ul', { class: 'patient-notes' },
+        h('li', {}, 'Sex and age are from the hospital record. The agents were not told them; they knew them only if the patient or the examination said so.'),
+        h('li', {}, 'Results are what the hospital record held for this patient. “No value in the hospital record” means the hospital did not measure it; it does not say whether the test was needed.'),
+        h('li', {}, advisor ? 'Advisor view: the reasoning summaries the model recorded are shown where they exist.'
+          : 'The agents’ private reasoning is not shown, to keep the reading blind. You see everything each agent wrote, ordered and received.')),
+      abbr.length ? h('details', { class: 'abbr-list' }, h('summary', {}, `Abbreviations in this case (${abbr.length})`),
+        h('dl', {}, abbr.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]))) : null);
+  }
+
   const nOrders = order.length;
   const exam = sharedExam(caseDoc);
   mount(main,
@@ -529,10 +564,12 @@ export async function renderCase(main, ctx, caseId) {
           h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => openTutorialDialog(cfg.formVersion) }, 'How to rate'),
           h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: reportProblem }, 'Report a problem'))),
       preview ? h('p', { class: 'notice' }, 'Study-team preview. Nothing is saved.') : null,
+      advisor && !preview ? h('p', { class: 'notice' }, 'Advisor view. Cases open in any order, answers are optional and are not part of the analysis, and the reasoning summaries the model recorded are shown where they exist.') : null,
       ref ? h('div', { class: 'notice' }, h('p', {}, 'The study physicians\' answers are shown under yours.'),
         ref.note ? h('p', {}, ref.note) : null) : null,
 
-      h('div', { class: 'card presentation' }, h('h2', { class: 'card-title' }, 'On arrival'), h('p', {}, withAbbr(caseDoc.presentation)),
+      v3 ? patientCard() : null,
+      v3 ? null : h('div', { class: 'card presentation' }, h('h2', { class: 'card-title' }, 'On arrival'), h('p', {}, withAbbr(caseDoc.presentation)),
         noPrimarySymptom(caseDoc.presentation) ? h('p', { class: 'presentation-note' }, NO_SYMPTOM_NOTE) : null,
         (() => {   // Abbreviations in this case (display only); the dotted ones also show their meaning on hover or tap
           const list = abbreviationsIn([caseDoc.presentation, ...['A', 'B'].flatMap((w) => (caseDoc.workups?.[w]?.conversation || []).map((m) => m.text))]);
@@ -541,17 +578,20 @@ export async function renderCase(main, ctx, caseId) {
         })()),
 
       h('section', { class: 'block' },
-        h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '1'), 'Conversations'),
+        h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '1'), v3 ? 'The two encounters' : 'Conversations'),
+        v3 ? h('p', { class: 'block-note' }, 'Each workup in time order: the history, every step in which the agent placed orders, the results the record returned, what the agent wrote next, and its final diagnosis.') : null,
         exam ? h('div', { class: 'card exam-shared' }, h('h3', { class: 'card-title' }, 'Physical examination (same in both workups)'), h('p', { class: 'msg-text' }, withAbbr(exam))) : null,
         h('div', { class: 'two-col conv-cols' },
-          conversationColumn('A', caseDoc.workups.A.conversation, { compact: true, hideExam: !!exam }),
-          conversationColumn('B', caseDoc.workups.B.conversation, { compact: true, hideExam: !!exam }))),
+          v3 ? encounterColumn('A', caseDoc.workups.A, { hideExam: !!exam, advisor }) : conversationColumn('A', caseDoc.workups.A.conversation, { compact: true, hideExam: !!exam }),
+          v3 ? encounterColumn('B', caseDoc.workups.B, { hideExam: !!exam, advisor }) : conversationColumn('B', caseDoc.workups.B.conversation, { compact: true, hideExam: !!exam }))),
 
       h('section', { class: 'block' },
         h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '2'), nOrders
           ? `Orders in one workup only (${nOrders})`
           : 'Both workups placed the same orders'),
         nOrders ? null : h('p', { class: 'notice' }, 'Nothing to rate here. Review the orders, then rate each workup as a whole below.'),
+        v3 && nOrders ? h('p', { class: 'rate-note' }, h('b', {}, 'Rate each order on what was known when it was placed: '),
+          'the history from either conversation, the examination, and the patient\'s sex and age. Do not use the results to rate an order; use them for the questions about each workup below.') : null,
         bothToggle, bothNote, ordersGrid, unplacedBox),
 
       h('section', { class: 'block' },

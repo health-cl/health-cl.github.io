@@ -1,7 +1,7 @@
 import { h, mount } from '../dom.js';
 import { withAbbr } from '../abbreviations.js';
 import { icon, PANEL_ICON } from '../icons.js';
-import { md, inline, examView } from '../richtext.js';
+import { md, inline, examView, unglue } from '../richtext.js';
 
 // Reading display v3 (Amendment I): each workup as one encounter in time order. Display only; nothing here is stored.
 // Case text is shown as the record and the agents produced it; the only transformations are layout and the
@@ -46,6 +46,8 @@ const CHART_ORDER = {
     'Bilirubin', 'Urobilinogen', 'RBC', 'WBC', 'Bacteria', 'Yeast', 'Epithelial Cells'],
   'Blood gas': ['pH', 'pCO2', 'pO2', 'Base Excess'],
 };
+CHART_ORDER['Complete blood count'] = CHART_ORDER['Complete blood count with differential'];
+CHART_ORDER.Urinalysis = CHART_ORDER['Urinalysis with microscopy'];
 // Names as a chart prints them where the record's name is long; the record's name is the tooltip.
 const CHART_NAME = { 'Alanine Aminotransferase (ALT)': 'ALT', 'Aspartate Aminotransferase (AST)': 'AST' };
 const chartSort = (g, rs) => {
@@ -138,7 +140,7 @@ function resultsSection(st) {
 // ---------------------------------------------------------------- history (conversation before the first order)
 export function agentQuestions(text) {
   const out = [];
-  for (const raw of String(text).split('\n')) {
+  for (const raw of unglue(text).split('\n')) {
     const line = raw.trim();
     if (!line) continue;
     const bullet = line.match(/^(?:[-*•]|\d+[.)])\s+(.*)$/);

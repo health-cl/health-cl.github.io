@@ -920,7 +920,7 @@ body.on-case .topbar { position: static; }
 .exam-shared .exam-head .muted { text-transform: none; letter-spacing: 0; font-weight: 500; }
 .exam-grid { display: grid; grid-template-columns: minmax(96px, max-content) minmax(0, 1fr); margin: 0; font-size: .93rem; }
 .exam-grid dt, .exam-grid dd { padding: 6px 0; border-top: 1px solid var(--line-2); }
-.exam-grid dt:first-of-type, .exam-grid dt:first-of-type + dd { border-top: 0; }
+.exam-grid > :first-child, .exam-grid > dt:first-child + dd { border-top: 0; }
 .exam-grid dt { padding-right: 18px; font-size: .8rem; font-weight: 650; color: var(--ink-2); }
 .exam-grid dd { margin: 0; overflow-wrap: anywhere; }
 abbr.abbr { text-decoration: none; }
@@ -931,3 +931,5 @@ abbr.abbr { text-decoration: none; }
 .exam-lines { margin: 0; padding: 0; list-style: none; display: grid; font-size: .93rem; }
 .exam-lines li { padding: 5px 0; border-top: 1px solid var(--line-2); }
 .exam-lines li:first-child { border-top: 0; }
+.exam-grid dd.exam-wide { grid-column: 1 / -1; }
+.exam-grid dd.exam-wide:first-child { border-top: 0; }

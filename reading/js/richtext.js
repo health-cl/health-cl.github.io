@@ -25,9 +25,20 @@ export function inline(text) {
   return out;
 }
 
+// The harness joined the text parts of one agent turn with no separator, so a part can start right after the previous one's
+// last full stop ("...plan.### Summary", "...below:1. Labs", "...today.I will"). The break is restored: a new line before a
+// glued list item or heading, a space before a glued sentence. No word is changed.
+export function unglue(text) {
+  return String(text ?? '')
+    .replace(/([A-Za-z)][.?!:])(#{1,6} )/g, '$1\n$2')
+    .replace(/([A-Za-z)][.?!:])(\d{1,2}[.)] )(?=[A-Z*])/g, '$1\n$2')
+    .replace(/([A-Za-z)][.?!:])(- )(?=\S)/g, '$1\n$2')
+    .replace(/([A-Za-z)\]][.?!])(?=[A-Z](?:[a-z]|\s))/g, '$1 ');
+}
+
 // Block markdown: headings, bullet and numbered lists (one level of nesting), paragraphs; rules are dropped.
 export function md(text) {
-  const lines = String(text ?? '').replace(/\r/g, '').split('\n');
+  const lines = unglue(text).replace(/\r/g, '').split('\n');
   const out = [];
   let para = [];
   let list = null;                      // { kind: 'ul' | 'ol', el, last }
@@ -108,7 +119,9 @@ export function examSections(text) {
   if (hits.length < 2) return null;
   const rows = [];
   const pre = s.slice(0, hits[0].index);
-  if (!PREAMBLE.test(pre.replace(/[:\s]+$/, ''))) rows.push({ label: '', name: '', text: pre.trim() });
+  // Text before the first label: a run of vital signs (it holds a blood pressure such as 128/80) is named as such; other text
+  // spans the row; a heading such as "On admission" is dropped.
+  if (!PREAMBLE.test(pre.replace(/[:\s]+$/, ''))) rows.push({ label: '', name: /\b\d{2,3}\/\d{2,3}\b/.test(pre) ? 'Vital signs' : '', text: pre.trim() });
   hits.forEach((m, i) => {
     const end = i + 1 < hits.length ? hits[i + 1].index : s.length;
     const body = s.slice(m.index + m[0].length, end).replace(/^[\s:]+|[\s,;]+$/g, '');
@@ -128,8 +141,7 @@ export function examView(text) {
     const sents = byGap.length >= 3 ? byGap : t.split(/(?<=[.;])\s+(?=[A-Z(])/).filter(Boolean);
     return sents.length >= 3 ? h('ul', { class: 'exam-lines' }, sents.map((x) => h('li', {}, inline(x)))) : h('div', { class: 'md' }, md(text));
   }
-  return h('dl', { class: 'exam-grid' }, rows.flatMap((r) => [
-    h('dt', {}, r.name === null ? withAbbr('___') : r.name || ''),
-    h('dd', {}, inline(r.text)),
-  ]));
+  return h('dl', { class: 'exam-grid' }, rows.flatMap((r) => (r.name === ''
+    ? [h('dd', { class: 'exam-wide' }, inline(r.text))]
+    : [h('dt', {}, r.name === null ? withAbbr('___') : r.name), h('dd', {}, inline(r.text))])));
 }

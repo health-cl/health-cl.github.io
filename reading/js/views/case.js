@@ -38,13 +38,12 @@ export function itemOrder(caseDoc) {
 export function sharedLine(line) {
   // Amendment G (app 2.0.10): the tag says what the reader needs, "not rated"; the tooltip only adds detail.
   const ctx = 'Ordered in both workups. Shown for context and not rated.';
+  // 3.1.2: a panel in both workups is the same order whatever components each agent listed, so no "components differ".
   const tag = line.unrated ? ['not rated', 'This order is in one workup only but is not part of the rating.']
-    : line.shared === 'differs' ? ['in both · differs', `${ctx} The components differ.`]
-      : line.shared === 'elsewhere' ? ['in both · not rated', `${ctx} Listed under ${line.otherPanel} in the other workup.`]
-        : ['in both · not rated', ctx];
+    : line.shared === 'elsewhere' ? ['in both · not rated', `${ctx} Listed under ${line.otherPanel} in the other workup.`]
+      : ['in both · not rated', ctx];
   return h('li', { class: `order order-shared${line.unrated ? ' order-unrated' : ''}`, title: tag[1] },
-    h('span', { class: 'order-main' }, h('span', { class: 'order-text' }, line.text), stepChip(line.step, line.steps),
-      line.onlyHere ? h('span', { class: 'order-detail' }, `Adds ${line.onlyHere}`) : null),
+    h('span', { class: 'order-main' }, h('span', { class: 'order-text' }, line.text), stepChip(line.step, line.steps)),
     h('span', { class: 'both' }, tag[0]));
 }
 
@@ -84,14 +83,21 @@ export function procedureName(t) {
 export function medicationName(t) {
   return String(t ?? '').replace(/\bringer\b/gi, 'Ringer').replace(/\b(xl|sr|er|xr|cr|dr|odt|iv)\b/g, (m) => m.toUpperCase());
 }
-const NAME_FIX = { Procedures: procedureName, Medications: medicationName };
+// A panel is one order however many of its components the agent listed (Amendment I), so it carries the name clinicians
+// order it by: "Complete blood count", "Urinalysis". Display only.
+const ORDER_NAME = { 'Complete blood count with differential': 'Complete blood count', 'Urinalysis with microscopy': 'Urinalysis' };
+const labName = (t) => ORDER_NAME[t] || t;
+const NAME_FIX = { Procedures: procedureName, Medications: medicationName, 'Blood tests': labName, 'Urine tests': labName };
 export function cleanCase(caseDoc) {
   const c = JSON.parse(JSON.stringify(caseDoc));
   c.presentation = cleanText(c.presentation);
   for (const it of Object.values(c.items || {})) if (NAME_FIX[it.panel]) it.name = NAME_FIX[it.panel](it.name);
   for (const w of ['A', 'B']) {
     for (const p of (c.workups?.[w]?.orders || [])) if (NAME_FIX[p.panel]) for (const l of (p.lines || [])) l.text = NAME_FIX[p.panel](l.text);
-    for (const st of (c.workups?.[w]?.timeline || [])) for (const o of (st.orders || [])) if (NAME_FIX[o.panel]) o.text = NAME_FIX[o.panel](o.text);
+    for (const st of (c.workups?.[w]?.timeline || [])) {
+      for (const o of (st.orders || [])) if (NAME_FIX[o.panel]) o.text = NAME_FIX[o.panel](o.text);
+      for (const r of (st.results || [])) for (const row of (r.rows || [])) if (row.group) row.group = labName(row.group);
+    }
   }
   for (const w of ['A', 'B']) {
     for (const m of (c.workups?.[w]?.conversation || [])) {

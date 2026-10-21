@@ -23,7 +23,7 @@ export async function renderQueue(main, ctx) {
       h('div', { class: 'onboard-card' },
         h('header', {},
           h('h1', {}, 'You are all set'),
-          h('p', { class: 'lede' }, 'Your profile is done. The study team approves each account, usually the same day. Your first case opens here as soon as you are approved; you can also close this page and come back later.')),
+          h('p', { class: 'lede' }, 'Your profile is done. The study team approves each account, usually the same day. Your first case opens here as soon as you are approved. You can also close this page and come back later.')),
         status,
         h('div', { class: 'kv' }, h('div', {}, h('span', {}, 'Signed in as'), h('b', {}, state.user.email))),
         h('div', { class: 'actions-end' }, h('a', { class: 'btn btn-ghost', href: '#/guidelines' }, 'Review guidelines')))));
@@ -104,9 +104,9 @@ export async function renderQueue(main, ctx) {
       h('div', { class: 'page-head split' },
         h('div', {},
           h('h1', {}, debriefOpen ? 'One last step' : practiceDone ? `${submitted} of ${study.length} cases submitted` : 'Practice first'),
-          advisorSlot ? h('p', { class: 'lede' }, 'Advisor view: every case is open; read them in any order. Answers are optional and are not part of the analysis.') : null,
+          advisorSlot ? h('p', { class: 'lede' }, 'Every case is open. Read them in any order. Answers are optional and are not part of the analysis.') : null,
           advisorSlot ? null : h('p', { class: 'lede' }, debriefOpen ? 'Everything is submitted. Please answer the short questions below to finish.' : practiceDone
-            ? (remainingMin ? `About ${remainingMin < 90 ? `${remainingMin} minutes` : `${Math.round(remainingMin / 6) / 10} hours`} left. You can stop at any point; answers are saved.` : 'Everything is submitted. Thank you.')
+            ? (remainingMin ? `About ${remainingMin < 90 ? `${remainingMin} minutes` : `${Math.round(remainingMin / 6) / 10} hours`} left. You can stop at any point. Answers are saved.` : 'Everything is submitted. Thank you.')
             : 'Practice answers are not analysed.')),
         next ? h('button', { class: 'btn btn-primary btn-lg', type: 'button', onclick: () => go(`${isNoteId(next.caseId) ? 'note' : 'case'}/${encodeURIComponent(next.caseId)}`) },
           stateOf(next) === 'draft' ? 'Continue where you left off' : !practiceDone ? 'Start practice' : isNoteId(next.caseId) ? 'Open next note pair' : 'Open next case') : null),

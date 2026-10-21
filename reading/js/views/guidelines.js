@@ -16,7 +16,7 @@ export function renderGuidelines(main, ctx) {
       await store.saveGuidelinesStatus(state.user.uid, { version, attempts: 0, readAt: true, quizPassedAt: true });
       await reload();
       go('start');
-    } catch (e) { btn.disabled = false; toast(`Could not save: ${e.message}`, 'error'); }
+    } catch (e) { btn.disabled = false; toast(`Could not save. ${e.message}`, 'error'); }
   }
   const host = h('div', { class: 'onboard-card tut-card' });
   mount(main, h('section', { class: 'onboard tut-page' }, host));

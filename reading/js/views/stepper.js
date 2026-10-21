@@ -10,5 +10,5 @@ export function stepper(current) {
       'aria-current': i === current ? 'step' : null,
       title: s,
     }))),
-    h('p', {}, `Step ${current + 1} of ${STEPS.length}: ${STEPS[current]}`));
+    h('p', {}, `Step ${current + 1} of ${STEPS.length} · ${STEPS[current]}`));
 }

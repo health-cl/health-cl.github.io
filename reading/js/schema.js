@@ -1,7 +1,7 @@
 // Scales, profile fields and validation. One place, so the form, the guidelines and the
 // export script all use the same codes. Codes are what is stored; labels are what raters see.
 
-export const APP_VERSION = '3.0.3';
+export const APP_VERSION = '3.1.0';
 export const GUIDELINES_VERSION = 'G3.0';
 
 // Per-order rating. v2 = protocol draft section 3 (adds H). v1 = the declared packet form.
@@ -10,15 +10,15 @@ export const ORDER_SCALES = {
     // Labels (G1.9) use standard terms: necessary and appropriate (RAND/UCLA appropriateness method), low value
     // (low-value care), harmful, unable to assess. Stored codes are unchanged.
     { code: 'N', short: 'This patient needs it now.', key: '1', label: 'Necessary', cls: 'appropriate',
-      desc: 'Necessary: this patient needs it now. You are then asked whether the other workup meets the same need another way.' },
+      desc: 'This patient needs it now. You then say whether the other workup meets the same need another way.' },
     { code: 'E', short: 'Reasonable to order or to leave out.', key: '2', label: 'Appropriate', cls: 'appropriate',
-      desc: 'Appropriate but not necessary: reasonable to order or to leave out.' },
-    { code: 'X', short: 'Little or no benefit for this patient; any harm is trivial.', key: '3', label: 'Low value', cls: 'not-indicated',
-      desc: 'Low value: little or no benefit for this patient, and any harm is trivial (for example, one more blood test).' },
+      desc: 'Appropriate but not necessary. Reasonable to order or to leave out.' },
+    { code: 'X', short: 'Little or no benefit for this patient, and any harm is trivial.', key: '3', label: 'Low value', cls: 'not-indicated',
+      desc: 'Little or no benefit for this patient, and any harm is trivial, such as one more blood test.' },
     { code: 'H', short: 'Expected harm outweighs benefit, or contraindicated.', key: '4', label: 'Harmful', cls: 'harmful',
-      desc: 'Harmful: expected harm (radiation, contrast, adverse drug effects, further unneeded care) outweighs any benefit, or something shown contraindicates it.' },
+      desc: 'Expected harm, such as radiation, contrast, adverse drug effects or further unneeded care, outweighs any benefit, or something shown contraindicates it.' },
     { code: '?', short: 'Depends on information not shown, such as a dose the agent did not give.', key: '5', label: 'Unable to assess', cls: 'unknown',
-      desc: 'Unable to assess from what is shown (for example, it depends on a dose the agent did not give).' },
+      desc: 'Cannot be judged from what is shown, for example when it depends on a dose the agent did not give.' },
   ],
   v1: [
     { code: 'N', key: 'n', label: 'Needed', cls: 'appropriate',
@@ -72,7 +72,7 @@ export const ALT_OPTIONS = [{ code: 'yes', label: 'Yes' }, { code: 'no', label: 
 // G2.1 (Amendment E): overall quality of each workup for this patient, a standard 5-point rating, asked of every workup.
 // G3.0 (Amendment I, I4.2): labels unchanged, anchors added and shown as text.
 export const WORKUP_QUALITY = [
-  { code: '1', label: '1 Very poor', anchor: 'Unsafe or incoherent; you would stop it.' },
+  { code: '1', label: '1 Very poor', anchor: 'Unsafe or incoherent. You would stop it.' },
   { code: '2', label: '2 Poor', anchor: 'Important problems a supervisor must correct.' },
   { code: '3', label: '3 Acceptable', anchor: 'Reasonable, with minor problems.' },
   { code: '4', label: '4 Good', anchor: 'What a competent emergency physician would do.' },
@@ -102,7 +102,7 @@ export const NOTE_EFFECT = [
   { code: 'more', label: 'More tests than needed' },
   { code: 'right', label: 'About right' },
   { code: 'missed', label: 'Needed tests missed' },
-  { code: 'both', label: 'Both: more than needed, and needed tests missed' },
+  { code: 'both', label: 'More than needed, and needed tests missed' },
   { code: 'unknown', label: 'Cannot tell' },
 ];
 

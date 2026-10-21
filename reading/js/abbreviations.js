@@ -272,12 +272,15 @@ export const ABBREVIATIONS = {
 // tooltip (and on focus, for touch screens). Matching is case-sensitive on whole tokens, as tools/count_abbreviations.py.
 import { h } from './dom.js';
 
-const KEYS = Object.keys(ABBREVIATIONS).sort((a, b) => b.length - a.length);
+// Units, vital signs, routes, dosing intervals and terms every physician reads at a glance are left unmarked.
+const PLAIN = new Set(['mg', 'mL', 'mcg', 'mEq', 'hr', 'hrs', 'T', 'Temp', 'BP', 'HR', 'RR', 'SpO2', 'O2', 'IV', 'iv', 'IM', 'SC', 'SQ', 'SL',
+  'PO', 'po', 'BID', 'bid', 'TID', 'tid', 'QID', 'QD', 'qd', 'QHS', 'PRN', 'prn', 'q4h', 'q6h', 'Q6H', 'q8h', 'Q8H', 'q12h',
+  'CT', 'MRI', 'ECG', 'EKG', 'CBC', 'ED', 'ICU', 'w/', 'w/o', 'pt', 'pts', 'yo', 'y/o', 'Hx', 'hx', 'Dx', 'dx', 'Tx', 'tx', 'Sx', 'sx']);
+const KEYS = Object.keys(ABBREVIATIONS).filter((k) => !PLAIN.has(k)).sort((a, b) => b.length - a.length);
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\/&]/g, '\\$&');
 const RE = new RegExp(`(?<![A-Za-z0-9/])(${KEYS.map(esc).join('|')})(?![A-Za-z0-9/])`, 'g');
 
-export function withAbbr(text) {
-  if (!text) return text;
+function abbrPart(text) {
   const out = []; let last = 0;
   for (const m of String(text).matchAll(RE)) {
     if (m.index > last) out.push(text.slice(last, m.index));
@@ -285,6 +288,20 @@ export function withAbbr(text) {
     last = m.index + m[1].length;
   }
   if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
+// MIMIC replaces names, dates and places with "___"; shown as a small marker so it is not read as a blank in the text.
+export function withAbbr(text) {
+  if (!text) return text;
+  const s = String(text);
+  const out = []; let last = 0;
+  for (const m of s.matchAll(/_{3,}/g)) {
+    if (m.index > last) out.push(...abbrPart(s.slice(last, m.index)));
+    out.push(h('span', { class: 'deid', title: 'Removed from the record for privacy' }, 'removed'));
+    last = m.index + m[0].length;
+  }
+  if (last < s.length) out.push(...abbrPart(s.slice(last)));
   return out;
 }
 

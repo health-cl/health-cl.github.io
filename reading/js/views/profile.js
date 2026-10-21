@@ -20,7 +20,7 @@ export function renderProfile(main, ctx) {
     status.textContent = 'Saving…';
     saveTimer = setTimeout(async () => {
       try { await store.saveProfile(state.user.uid, { ...values, email: state.user.email }); status.textContent = 'Draft saved'; }
-      catch (e) { status.textContent = `Not saved: ${e.message}`; }
+      catch (e) { status.textContent = `Not saved. ${e.message}`; }
     }, 500);
   }
 
@@ -91,14 +91,14 @@ export function renderProfile(main, ctx) {
   const form = h('form', { class: 'onboard-card', novalidate: true, onsubmit: onSubmit },
     h('header', {},
       h('h1', {}, 'Your profile'),
-      h('p', { class: 'lede' }, 'About 2 minutes. The paper reports readers only as counts (specialty, position, years, country); ratings are anonymous.')),
+      h('p', { class: 'lede' }, 'About 2 minutes. The paper reports readers only as counts of specialty, position, years and country. Ratings are anonymous.')),
     h('div', { class: 'sec-label' }, about.title),
     h('div', { class: 'fields' }, about.fields[0] ? field(about.fields[0]) : null, email, about.fields.slice(1).map(field)),
     h('div', { class: 'sec-label' }, conf.title),
     h('div', { class: 'fields' }, conf.fields.map(field)),
     h('div', { class: 'actions-end' },
       status,
-      h('button', { class: 'btn btn-primary', type: 'submit' }, firstTime ? 'Next: guidelines →' : 'Save')));
+      h('button', { class: 'btn btn-primary', type: 'submit' }, firstTime ? 'Continue to guidelines' : 'Save')));
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -117,7 +117,7 @@ export function renderProfile(main, ctx) {
       await reload();
       toast('Profile saved.', 'ok');
       go(firstTime ? 'guidelines' : '');
-    } catch (err) { toast(`Could not save: ${err.message}`, 'error'); }
+    } catch (err) { toast(`Could not save. ${err.message}`, 'error'); }
   }
 
   refreshDerived();

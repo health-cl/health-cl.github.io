@@ -6,11 +6,18 @@
 const A = (text) => ({ who: 'agent', text });
 const P = (text) => ({ who: 'patient', text });
 const R = (label, text) => ({ who: 'result', label, text });
-const lab = (rows) => ({ tool: 'LabRequestList', panel: 'Blood tests', rows });
-const urine = (rows) => ({ tool: 'UrineRequestList', panel: 'Urine tests', rows });
+const lab = (rows) => ({ tool: 'LabRequestList', panel: 'Blood tests', rows: grouped(rows) });
+const urine = (rows) => ({ tool: 'UrineRequestList', panel: 'Urine tests', rows: grouped(rows) });
 const report = (panel, text) => ({ tool: 'report', panel, text });
 const v = (test, value, unit, range, flag) => ({ test, value, ...(unit ? { unit } : {}), ...(range ? { range } : {}), ...(flag ? { flag } : {}) });
 const na = (test) => ({ test, missing: true });
+const GROUP = { 'Lipase': 'Lipase', 'White blood cells': 'Complete blood count with differential', 'Hemoglobin': 'Complete blood count with differential',
+  'Platelet count': 'Complete blood count with differential', 'Sodium': 'Basic metabolic panel', 'Potassium': 'Basic metabolic panel',
+  'Urea nitrogen': 'Basic metabolic panel', 'Creatinine': 'Basic metabolic panel', 'Glucose': 'Basic metabolic panel', 'Calcium, total': 'Basic metabolic panel',
+  'Alanine aminotransferase (ALT)': 'Hepatic function panel', 'Bilirubin, total': 'Hepatic function panel', 'Albumin': 'Hepatic function panel',
+  'Lactate': 'Lactate', 'C-reactive protein': 'C-reactive protein', 'Triglycerides': 'Triglycerides', 'Leukocytes': 'Urinalysis with microscopy',
+  'Nitrite': 'Urinalysis with microscopy', 'Blood': 'Urinalysis with microscopy', 'Ketone': 'Urinalysis with microscopy' };
+const grouped = (rows) => rows.map((r) => (GROUP[r.test] ? { ...r, group: GROUP[r.test] } : r));
 
 function makeCase({ id, patient, presentation, conv, steps, final, advisor = false, history }) {
   const items = {};
@@ -96,7 +103,7 @@ const PANC = {
       { reasoning: 'Lipase about forty times normal confirms pancreatitis. ALT only slightly raised and bilirubin normal, but a first episode still needs gallstones excluded: ultrasound, not CT.',
         text: 'Your blood tests show inflammation of the pancreas. I would like an ultrasound to look for gallstones.',
         orders: { 'Imaging': ['*Abdominal ultrasound | right upper quadrant, gallstones in first episode of pancreatitis'] },
-        results: [report('Imaging', 'Gallbladder is distended with multiple small mobile stones. No gallbladder wall thickening or pericholecystic fluid. Common bile duct 4 mm. Pancreas partly obscured by bowel gas.')],
+        results: [report('Imaging', 'Gallbladder is distended with multiple small mobile stones. No gallbladder wall thickening or pericholecystic fluid. Common bile duct 4 mm. Pancreas partly obscured by bowel gas. No prior study at ___ for comparison.')],
         reply: 'Okay, thank you, doctor.', seen: true },
       { noOrders: true, finish: true, text: 'This looks like acute pancreatitis, most likely from gallstones. We will admit you for fluids and pain control and ask the surgeons to see you about the gallbladder.' },
     ],

@@ -1,55 +1,55 @@
 import { h, mount } from '../dom.js';
-import { ORDER_SCALES, HARM_LEVELS } from '../schema.js';
+import { ORDER_SCALES } from '../schema.js';
+import { icon } from '../icons.js';
 
-// Short walkthrough (G1.9; G3.0 rewrites it for the encounter view, Amendment I): shown as a pop-up before the first case and from "How to rate" on every case page.
+// Short walkthrough (G1.9; G3.0 rewrites it for the encounter view, Amendment I; 3.1 shortens the wording to one card per
+// case tab, no rule changed): shown as a pop-up before the first case and from "How to rate" on every case page.
 // Terms: RAND/UCLA appropriateness (necessary, appropriate), low-value care, AHRQ Common Formats harm scale.
-function chips(list, cls = '') {
-  return h('div', { class: 'tut-chips' }, list.map((x) => h('span', { class: `tut-chip ${cls}` }, x)));
-}
+const TABS = [['history', 'Encounters'], ['orders', 'Orders'], ['workup', 'Workups'], ['decision', 'Decision']];
+const tabStrip = () => h('ol', { class: 'tut-tabs' }, TABS.map(([ic, label], i) => h('li', {},
+  h('span', { class: 'tut-tab-num' }, String(i + 1)), icon(ic, { size: 15 }), h('span', {}, label))));
 
 export const TUTORIAL_STEPS = [
   {
     title: 'Two workups of one patient',
     body: () => [
-      h('p', {}, 'Each case is one simulated emergency department patient that an AI agent worked up twice, A and B. Your task is to compare them.'),
-      h('p', {}, 'Both workups can be poor. The differences between them still matter, so please rate them even when neither is good care.'),
-      h('p', {}, "At the top you see the patient's sex and age, from the hospital record (the agents were not told them), and the arrival line. In some cases the record has no primary symptom, so the arrival line ends after the colon; the agents received the same line."),
-      h('p', {}, 'Judge each workup for this patient, using everything the patient said in either conversation. If the two conversations disagree on a fact that matters, tick the box at the end of the case.'),
+      h('p', {}, 'An AI agent worked up the same emergency patient twice, as A and B. You compare the two.'),
+      h('p', {}, 'Both can be poor. Rate them anyway, because the differences still matter.'),
+      h('p', {}, 'What the patient said in either conversation counts for both workups.'),
+      tabStrip(),
     ],
   },
   {
-    title: 'Reading an encounter',
+    title: 'Encounters', icon: 'history',
     body: () => [
-      h('p', {}, h('b', {}, 'History. '), "The conversation before the first order. By default you see the agent's questions and the patient's replies; open the full conversation with one click."),
-      h('p', {}, h('b', {}, 'Steps. '), 'Each time the agent placed orders. Many agents placed every order in one step, before any result came back, and some gave their final diagnosis in that same step. The page says so.'),
-      h('p', {}, h('b', {}, 'Results. '), 'Exactly what the hospital record returned. “No value in the hospital record” means the hospital did not measure it; it does not say whether the test was needed. “Not seen by the agent” means the result came back after the agent had already given its final diagnosis.'),
-      h('p', {}, 'The agents’ private reasoning is not shown, to keep the reading blind. In this simulation the agent could also order procedures and treatments directly; in practice the emergency physician would usually consult the treating service.'),
+      h('p', {}, 'Sex, age and triage vital signs come from the hospital record. On arrival the agents saw only the chief complaint.'),
+      h('p', {}, 'Each workup reads top to bottom, from the history through each step of orders and its results to the final diagnosis.'),
+      h('p', {}, 'Results the agent never saw are tagged ', h('span', { class: 'stag stag-unseen' }, 'Not seen by agent'), '. Agent reasoning is hidden to keep the reading blind.'),
     ],
   },
   {
-    title: 'Rate each order found in one workup only',
+    title: 'Orders', icon: 'orders',
     body: (scale) => [
-      h('p', {}, h('b', {}, 'Rate each order on what was known when it was placed: '), "the history from either conversation, the examination, and the patient's sex, age and triage vital signs. Do not use the results to rate an order."),
+      h('p', {}, h('b', {}, 'Rate each order found in one workup only, on what was known when it was placed.'), ' Do not use its result.'),
       h('dl', { class: 'tut-scale' }, scale.map((s) => [h('dt', {}, h('span', { class: `scale-pill chip-${s.cls}` }, s.label)), h('dd', {}, s.short)])),
-      h('p', {}, "For Necessary, say whether the other workup meets the same need another way. For Harmful, choose the main reason. Orders in both workups are marked 'in both · not rated'."),
+      h('p', {}, 'For Necessary, say whether the other workup met the need another way. For Harmful, choose the main reason.'),
+      h('p', {}, 'The agent could order procedures and treatments directly. Judge whether that order, at that step, was appropriate.'),
     ],
   },
   {
-    title: 'Rate each workup, and look for important errors',
+    title: 'Workups', icon: 'workup',
     body: () => [
-      h('p', {}, 'Rate the overall quality of each workup as care for this patient: 1 unsafe or incoherent, 2 important problems a supervisor must correct, 3 reasonable with minor problems, 4 what a competent emergency physician would do, 5 nothing to change. Here you may use everything shown, including the results and the final diagnosis.'),
-      h('p', {}, 'An important error is one you would correct before care proceeds: something needed left out, a test or treatment ordered before the result it depends on, an order that could harm this patient, or a decision that belongs to another service. Mark it even if harm is unlikely.'),
-      h('p', {}, 'If there is one, mark where it is, its type, how severe the resulting harm could be and how likely it is.'),
-      chips(HARM_LEVELS.filter((x) => x.code !== 'none').map((x) => x.label)),
+      h('p', {}, 'Rate overall quality from 1 to 5. Here you may use the results and the final diagnosis.'),
+      h('p', {}, 'An important error is one you would correct before care continues. Mark it even if harm is unlikely.'),
+      h('p', {}, 'Then mark where it is, its type, how severe the harm could be and how likely it is.'),
     ],
   },
   {
-    title: 'Both workups, then your preference',
+    title: 'Decision', icon: 'decision',
     body: () => [
-      h('p', {}, 'Say whether an important action is missing from both workups. Then choose the workup you would rather this patient received and the main reason, or No preference, or Cannot compare.'),
-      h('p', {}, 'Answers save as you go. You can stop at any point and continue another day. Keys 1 to 5 rate the selected order.'),
-      h('p', {}, 'After the cases, you read a few notes the agent wrote for itself.'),
-      h('p', { class: 'tut-rule' }, 'Keep the cases confidential: do not paste them into online tools or discuss them with other readers.'),
+      h('p', {}, 'Say whether an important action is missing from both workups, and which workup you would rather this patient received.'),
+      h('p', {}, 'Answers save as you go. Keys 1 to 5 rate the selected order. After the cases you read a few notes the agent wrote for itself.'),
+      h('p', { class: 'tut-rule' }, icon('alert', { size: 15 }), 'Keep the cases confidential. Do not paste them into online tools or share them with other readers.'),
     ],
   },
 ];
@@ -66,7 +66,7 @@ export function tutorial(host, { formVersion = 'v2', doneLabel = 'Start', onDone
         h('div', { class: 'tut-head' },
           h('span', { class: 'tut-count' }, `${i + 1} of ${TUTORIAL_STEPS.length}`),
           onClose ? h('button', { type: 'button', class: 'linklike tut-close', onclick: onClose }, 'Close') : null),
-        h('h2', { class: 'tut-title' }, st.title),
+        h('h2', { class: 'tut-title' }, st.icon ? icon(st.icon, { size: 20 }) : null, st.title),
         h('div', { class: 'tut-body' }, st.body(scale)),
         h('div', { class: 'tut-foot' },
           h('div', { class: 'tut-dots', 'aria-hidden': 'true' }, TUTORIAL_STEPS.map((_, k) => h('span', { class: k === i ? 'on' : '' }))),

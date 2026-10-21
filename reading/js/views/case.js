@@ -4,6 +4,7 @@ import { openTutorialDialog } from './tutorial.js';
 import { withAbbr, abbreviationsIn } from '../abbreviations.js';
 import { ORDER_SCALES, HARM_LEVELS, HARM_REASONS, LIKELIHOOD, PREFERENCE5, ALT_OPTIONS, PLAN_ERROR, SEVERITY, COMMON_OMISSION, PREF_REASONS, WORKUP_QUALITY, ERROR_TYPES, missingForSubmit, APP_VERSION, GUIDELINES_VERSION } from '../schema.js';
 import { patientLine, encounterColumn, stepChip, lineDetail } from './encounter.js';
+import { icon, avatar, PANEL_ICON } from '../icons.js';
 
 export const PANEL_ORDER = ['Blood tests', 'Urine tests', 'Microbiology', 'Imaging', 'Procedures', 'Medications'];
 const IDLE_LIMIT_S = 120;
@@ -35,14 +36,14 @@ export function itemOrder(caseDoc) {
 
 export function sharedLine(line) {
   // Amendment G (app 2.0.10): the tag says what the reader needs, "not rated"; the tooltip only adds detail.
-  const ctx = 'Ordered in both workups. Shown for context; not rated.';
+  const ctx = 'Ordered in both workups. Shown for context and not rated.';
   const tag = line.unrated ? ['not rated', 'This order is in one workup only but is not part of the rating.']
-    : line.shared === 'differs' ? ['in both, components differ · not rated', `${ctx} The components listed in brackets differ.`]
+    : line.shared === 'differs' ? ['in both · differs', `${ctx} The components differ.`]
       : line.shared === 'elsewhere' ? ['in both · not rated', `${ctx} Listed under ${line.otherPanel} in the other workup.`]
         : ['in both · not rated', ctx];
   return h('li', { class: `order order-shared${line.unrated ? ' order-unrated' : ''}`, title: tag[1] },
-    h('span', { class: 'order-main' }, h('span', { class: 'order-text' }, line.text), stepChip(line.step),
-      line.onlyHere ? h('span', { class: 'order-detail' }, `Only here: ${line.onlyHere}`) : null),
+    h('span', { class: 'order-main' }, h('span', { class: 'order-text' }, line.text), stepChip(line.step, line.steps),
+      line.onlyHere ? h('span', { class: 'order-detail' }, `Adds ${line.onlyHere}`) : null),
     h('span', { class: 'both' }, tag[0]));
 }
 
@@ -65,11 +66,32 @@ export function agentQuestions(text) {
 export function cleanText(t) { return String(t ?? '').replace(/_{3,}/g, '[removed]'); }
 // Amendment H (app 2.0.11): MIRA's record has no primary symptom for some patients, so the agent's first message ends at the
 // colon. Display only: say so, and that the agents received the same line. Stored case text is unchanged.
-export const NO_SYMPTOM_NOTE = 'No primary symptom was recorded for this patient. The agents received the same blank line and learned the symptoms by asking the patient.';
+export const NO_SYMPTOM_NOTE = 'No primary symptom recorded. The agents saw the same blank line.';
 export function noPrimarySymptom(t) { return /primary symptoms:\s*$/i.test(String(t ?? '').trim()); }
+// The symptom words alone, without the sentence both agents were given around them.
+export function chiefComplaint(t) {
+  const x = String(t ?? '').trim().replace(/^the patient you are now seeing has primary symptoms:\s*/i, '');
+  return x ? x[0].toUpperCase() + x.slice(1) : '';
+}
+// Procedure names come from the scorer's normalised ICD titles, which lost their brackets ("stone s", "... ercp").
+// Display only: the stored item names and the keys are unchanged.
+export function procedureName(t) {
+  return String(t ?? '').replace(/\bstone s\b/g, 'stone(s)').replace(/ (ercp|ct)\b/g, (m, x) => ` (${x.toUpperCase()})`)
+    .replace(/ (not elsewhere classified|not otherwise specified|described as comprehensive|(?:percutaneous|open|external)(?: endoscopic)? approach)$/, ', $1');
+}
+// Medication names were lowercased by the scorer; restore Ringer and release-form suffixes (XL, SR, ER, IV). Display only.
+export function medicationName(t) {
+  return String(t ?? '').replace(/\bringer\b/gi, 'Ringer').replace(/\b(xl|sr|er|xr|cr|dr|odt|iv)\b/g, (m) => m.toUpperCase());
+}
+const NAME_FIX = { Procedures: procedureName, Medications: medicationName };
 export function cleanCase(caseDoc) {
   const c = JSON.parse(JSON.stringify(caseDoc));
   c.presentation = cleanText(c.presentation);
+  for (const it of Object.values(c.items || {})) if (NAME_FIX[it.panel]) it.name = NAME_FIX[it.panel](it.name);
+  for (const w of ['A', 'B']) {
+    for (const p of (c.workups?.[w]?.orders || [])) if (NAME_FIX[p.panel]) for (const l of (p.lines || [])) l.text = NAME_FIX[p.panel](l.text);
+    for (const st of (c.workups?.[w]?.timeline || [])) for (const o of (st.orders || [])) if (NAME_FIX[o.panel]) o.text = NAME_FIX[o.panel](o.text);
+  }
   for (const w of ['A', 'B']) {
     for (const m of (c.workups?.[w]?.conversation || [])) {
       m.text = cleanText(m.text);
@@ -170,7 +192,7 @@ export async function renderCase(main, ctx, caseId) {
     inflight += 1;
     pending = pending.then(() => store.patchAnnotation(uid, caseId, patch))
       .then(() => { saveState.textContent = 'Saved'; })
-      .catch((e) => { saveState.textContent = 'Not saved'; toast(`Not saved: ${e.message}`, 'error'); })
+      .catch((e) => { saveState.textContent = 'Not saved'; toast(`Not saved. ${e.message}`, 'error'); })
       .finally(() => { inflight -= 1; });
     return pending;
   }
@@ -211,9 +233,9 @@ export async function renderCase(main, ctx, caseId) {
 
   function reasonButtons(itemId) {
     const cur = ann.items[itemId]?.why;
-    if (locked) return h('p', { class: 'why-chosen' }, `Main reason: ${HARM_REASONS.find((x) => x.code === cur)?.label || 'not given'}.`);
+    if (locked) return h('p', { class: 'why-chosen' }, `Reason · ${HARM_REASONS.find((x) => x.code === cur)?.label || 'not given'}`);
     return h('div', { class: 'why', role: 'radiogroup', 'aria-label': 'Main reason this order is harmful' },
-      h('span', { class: 'why-label' }, 'Main reason:'),
+      h('span', { class: 'why-label' }, 'Main reason'),
       HARM_REASONS.map((x) => h('button', {
         type: 'button', role: 'radio', 'aria-checked': cur === x.code ? 'true' : 'false', title: x.desc,
         class: `why-btn${cur === x.code ? ' is-on' : ''}`, onclick: (e) => { e.stopPropagation(); setReason(itemId, x.code); },
@@ -222,9 +244,9 @@ export async function renderCase(main, ctx, caseId) {
 
   function altButtons(itemId) {
     const cur = ann.items[itemId]?.alt;
-    if (locked) return h('p', { class: 'why-chosen' }, `Other workup meets this need another way: ${ALT_OPTIONS.find((x) => x.code === cur)?.label || 'not given'}.`);
-    return h('div', { class: 'why', role: 'radiogroup', 'aria-label': 'Does the other workup meet this need another way?' },
-      h('span', { class: 'why-label' }, 'Does the other workup meet this need another way?'),
+    if (locked) return h('p', { class: 'why-chosen' }, `Met another way in the other workup · ${ALT_OPTIONS.find((x) => x.code === cur)?.label || 'not given'}`);
+    return h('div', { class: 'why', role: 'radiogroup', 'aria-label': 'Met another way in the other workup?' },
+      h('span', { class: 'why-label' }, 'Met another way in the other workup?'),
       ALT_OPTIONS.map((x) => h('button', {
         type: 'button', role: 'radio', 'aria-checked': cur === x.code ? 'true' : 'false',
         class: `why-btn alt-btn${cur === x.code ? ' is-on' : ''}`, onclick: (e) => { e.stopPropagation(); setSub(itemId, 'alt', x.code); },
@@ -254,12 +276,12 @@ export async function renderCase(main, ctx, caseId) {
       tabindex: locked ? null : '0', dataset: { item: id },
       onfocus: () => setCurrent(id, false), onclick: () => setCurrent(id, false),
     },
-    h('div', { class: 'order-line' }, h('span', { class: 'order-text' }, line.text), stepChip(line.step)),
+    h('div', { class: 'order-line' }, h('span', { class: 'order-text' }, line.text), stepChip(line.step, line.steps)),
     lineDetail(line),
     ratingButtons(id),
     ann.items[id]?.r === 'N' ? altButtons(id) : null,
     ann.items[id]?.r === 'H' ? reasonButtons(id) : null,
-    ref?.items?.[id] ? h('p', { class: 'ref-ans' }, `Study physicians: ${codeLabel(ref.items[id].r)}.`,
+    ref?.items?.[id] ? h('p', { class: 'ref-ans' }, `Study physicians rated it ${codeLabel(ref.items[id].r)}.`,
       ref.items[id].note ? ` ${ref.items[id].note}` : '') : null);
     rowEls[id] = row;
     return row;
@@ -302,6 +324,7 @@ export async function renderCase(main, ctx, caseId) {
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     if (document.querySelector('dialog[open]')) return;
+    if (v3 && tab !== 'orders') return;
     const k = e.key.toLowerCase();
     const s = scale.find((x) => x.key === k || (e.key === '?' && x.code === '?'));
     if (s && current) { e.preventDefault(); setRating(current, s.code); return; }
@@ -323,8 +346,8 @@ export async function renderCase(main, ctx, caseId) {
     h('div', { class: 'orders-head' },
       ['A', 'B'].map((w) => h('h3', { class: 'col-head' }, h('span', { class: `side side-${w}` }, w), `Workup ${w}`))),
     panels.map((panel) => h('div', { class: `panel-row${['A', 'B'].every((w) => linesOf(w, panel).every(isBoth)) ? ' panel-all-shared' : ''}` },
-      h('h4', { class: 'panel-name' }, panel, v3 && (panel === 'Procedures' || panel === 'Medications')
-        ? h('span', { class: 'panel-note' }, 'The simulation let the agent order these directly. In practice the emergency physician would usually consult the treating service.') : null),
+      h('h4', { class: 'panel-name' }, v3 ? icon(PANEL_ICON[panel] || 'orders', { size: 15 }) : null, panel, v3 && (panel === 'Procedures' || panel === 'Medications')
+        ? h('span', { class: 'info-tip', tabindex: '0', title: 'The agent could order these directly in this simulation. In practice the emergency physician usually consults the treating service.' }, icon('info', { size: 14 })) : null),
       h('div', { class: 'panel-cells' }, ['A', 'B'].map((w) => {
         const lines = linesOf(w, panel);
         const both = lines.filter(isBoth).length;
@@ -333,7 +356,7 @@ export async function renderCase(main, ctx, caseId) {
             both ? h('li', { class: 'order shared-count' }, `${both} in both workups`) : null]
             : h('li', { class: 'order order-none' }, 'none'));
       })))));
-  const bothLabel = () => (ordersGrid.classList.contains('hide-shared') ? `Show orders in both workups (${nBoth})` : 'Hide orders in both workups');
+  const bothLabel = () => (ordersGrid.classList.contains('hide-shared') ? `Show ${nBoth} shared orders` : 'Hide shared orders');
   const bothToggle = nBoth && order.length ? h('button', { type: 'button', class: 'linklike both-toggle', onclick: () => { ordersGrid.classList.toggle('hide-shared'); bothToggle.textContent = bothLabel(); } }, '') : null;
   if (bothToggle) bothToggle.textContent = bothLabel();
   const bothNote = nBoth ? h('p', { class: 'both-note' }, "Orders marked 'in both · not rated' appear in both workups. They are shown for context and are not rated.") : null;
@@ -347,7 +370,40 @@ export async function renderCase(main, ctx, caseId) {
   const seg = (name, opts, cur, onPick, cls = '') => h('div', { class: `seg ${cls}`, role: 'radiogroup', 'aria-label': name },
     opts.map((o) => h('label', { class: `seg-opt${cur === o.code ? ' is-on' : ''}`, title: o.potential || '' },
       h('input', { type: 'radio', name, value: o.code, checked: cur === o.code, disabled: locked, onchange: () => onPick(o.code) }), o.label)));
+  function workupCardV3(w) {
+    const wk = ann.workups[w] || {};
+    const sideItems = order.filter((id) => caseDoc.items[id].side === w);
+    const radios = (name, opts, cur, onPick, row = false) => h('div', { class: `radios${row ? ' radios-row' : ''}`, role: 'radiogroup', 'aria-label': name },
+      opts.map((o) => h('label', { class: `radio-opt${cur === o.code ? ' is-on' : ''}`, title: o.potential || o.desc || '' },
+        h('input', { type: 'radio', name: `${name}-${w}`, value: o.code, checked: cur === o.code, disabled: locked, onchange: () => onPick(o.code) }),
+        h('span', { class: 'radio-mark', 'aria-hidden': 'true' }),
+        h('span', { class: 'radio-text' }, h('span', { class: 'radio-label' }, o.label), o.anchor ? h('span', { class: 'radio-desc' }, o.anchor) : null))));
+    const checks = (name, opts, sel, onToggle) => h('div', { class: 'checks', role: 'group', 'aria-label': name },
+      opts.map((o) => h('label', { class: `check-opt${sel[o.code] ? ' is-on' : ''}`, title: o.desc || '' },
+        h('input', { type: 'checkbox', checked: !!sel[o.code], disabled: locked, onchange: () => onToggle(o.code) }),
+        h('span', { class: 'check-mark', 'aria-hidden': 'true' }, icon('check', { size: 12 })),
+        h('span', {}, o.label))));
+    const links = wk.links || {}, types = wk.types || {};
+    const q = (label, tip, body) => h('div', { class: 'q' }, h('div', { class: 'q-label' }, label,
+      tip ? h('span', { class: 'info-tip', tabindex: '0', title: tip }, icon('info', { size: 14 })) : null), body);
+    const box = h('fieldset', { class: 'card workup-card v3' },
+      h('legend', {}, h('span', { class: `side side-${w}` }, w), `Workup ${w}`),
+      q('Overall quality', null, radios('Overall quality', WORKUP_QUALITY, wk.quality, (code) => setWorkup(w, { quality: code }))),
+      q('Important error', 'An error you would correct before care continues. Mark it even if harm is unlikely.',
+        radios('Important error', PLAN_ERROR, wk.error, (code) => setWorkup(w, code === 'yes' ? { error: code } : { error: code, links: null, types: null, harm: null, likelihood: null }), true)),
+      wk.error === 'yes' ? [
+        q('Where', null, checks('Where', [...sideItems.map((id) => ({ code: id, label: caseDoc.items[id].name })),
+          { code: 'missing', label: 'Something missing' }, { code: 'shared', label: 'A shared order' }], links,
+        (code) => setWorkup(w, { links: { [code]: links[code] ? null : true } }))),
+        q('Type', null, checks('Type', ERROR_TYPES, types, (code) => setWorkup(w, { types: { [code]: types[code] ? null : true } }))),
+        q('Severity', null, radios('Severity', SEVERITY, wk.harm, (code) => setWorkup(w, { harm: code }), true)),
+        q('Likelihood', null, radios('Likelihood', LIKELIHOOD, wk.likelihood, (code) => setWorkup(w, { likelihood: code }), true)),
+      ] : null);
+    harmBoxes[w] = box;
+    return box;
+  }
   function workupCard(w) {
+    if (v3) return workupCardV3(w);
     const wk = ann.workups[w] || {};
     const sev = SEVERITY.find((x) => x.code === wk.harm);
     const sideItems = order.filter((id) => caseDoc.items[id].side === w);
@@ -403,8 +459,47 @@ export async function renderCase(main, ctx, caseId) {
   const workupsWrap = h('div', { class: 'two-col' }, workupCard('A'), workupCard('B'));
 
   // ---------- both workups, preference + comment ----------
+  const radioRow = (name, opts, isOn, onPick) => h('div', { class: 'radios radios-row', role: 'radiogroup', 'aria-label': name },
+    opts.map((o, i) => h('label', { class: `radio-opt${isOn(o) ? ' is-on' : ''}` },
+      h('input', { type: 'radio', name, value: String(i), checked: isOn(o), disabled: locked, onchange: () => onPick(o) }),
+      h('span', { class: 'radio-mark', 'aria-hidden': 'true' }),
+      h('span', { class: 'radio-text' }, h('span', { class: 'radio-label' }, o.label)))));
+  const qBlock = (label, body) => h('div', { class: 'q' }, h('div', { class: 'q-label' }, label), body);
   const bothWrap = h('div', { class: 'both-wrap' });
+  function renderBothV3() {
+    const omText = h('input', { type: 'text', maxlength: 300, class: 'om-text', placeholder: 'Which action', disabled: locked, value: ann.commonOmissionText || '',
+      'aria-label': 'Which action is missing',
+      oninput: (e) => { ann.commonOmissionText = e.target.value; clearTimeout(omText._t); omText._t = setTimeout(() => save({ commonOmissionText: ann.commonOmissionText }), 600); } });
+    const fc = !!ann.factConflict;
+    mount(bothWrap,
+      qBlock('Is an important action missing from both workups?', radioRow('omission', COMMON_OMISSION, (o) => ann.commonOmission === o.code, (o) => {
+        ann.commonOmission = o.code; if (o.code !== 'yes') ann.commonOmissionText = '';
+        save({ commonOmission: o.code, ...(o.code === 'yes' ? {} : { commonOmissionText: null }) }); renderBothV3(); updateBar();
+      })),
+      ann.commonOmission === 'yes' ? omText : null,
+      h('div', { class: 'checks' }, h('label', { class: `check-opt${fc ? ' is-on' : ''}` },
+        h('input', { type: 'checkbox', checked: fc, disabled: locked,
+          onchange: (e) => { ann.factConflict = e.target.checked; save({ factConflict: e.target.checked ? true : null }); renderBothV3(); } }),
+        h('span', { class: 'check-mark', 'aria-hidden': 'true' }, icon('check', { size: 12 })),
+        h('span', {}, 'The two conversations disagree on an important fact'))));
+  }
+  function prefGroupV3() {
+    const on = (p) => ann.preference === p.code && (ann.preferenceStrength || null) === p.strength;
+    const ab = ann.preference === 'A' || ann.preference === 'B';
+    return h('div', {},
+      radioRow('pref', PREFERENCE5, on, (p) => {
+        const toAB = p.code === 'A' || p.code === 'B';
+        ann.preference = p.code; ann.preferenceStrength = p.strength;
+        if (!toAB) ann.prefReason = null;
+        save({ preference: p.code, preferenceStrength: p.strength, ...(toAB ? {} : { prefReason: null }) });
+        prefWrap.replaceChild(prefGroupV3(), prefWrap.lastChild); updateBar();
+      }),
+      ab ? qBlock('Main reason', radioRow('pref-reason', PREF_REASONS, (x) => ann.prefReason === x.code, (x) => {
+        ann.prefReason = x.code; save({ prefReason: x.code }); prefWrap.replaceChild(prefGroupV3(), prefWrap.lastChild); updateBar();
+      })) : null);
+  }
   function renderBoth() {
+    if (v3) return renderBothV3();
     const omText = h('input', { type: 'text', maxlength: 300, class: 'om-text', placeholder: 'Which action? (optional)', disabled: locked, value: ann.commonOmissionText || '',
       oninput: (e) => { ann.commonOmissionText = e.target.value; clearTimeout(omText._t); omText._t = setTimeout(() => save({ commonOmissionText: ann.commonOmissionText }), 600); } });
     mount(bothWrap,
@@ -417,10 +512,11 @@ export async function renderCase(main, ctx, caseId) {
       h('label', { class: 'check fact-conflict' },
         h('input', { type: 'checkbox', checked: !!ann.factConflict, disabled: locked,
           onchange: (e) => { ann.factConflict = e.target.checked; save({ factConflict: e.target.checked ? true : null }); } }),
-        h('span', {}, 'The two conversations disagree on a fact that matters for the orders.')));
+        h('span', {}, 'The two conversations disagree on an important fact')));
   }
   renderBoth();
   function prefGroup() {
+    if (v3) return prefGroupV3();
     const on = (p) => ann.preference === p.code && (ann.preferenceStrength || null) === p.strength;
     const ab = ann.preference === 'A' || ann.preference === 'B';
     return h('div', {},
@@ -435,17 +531,22 @@ export async function renderCase(main, ctx, caseId) {
               prefWrap.replaceChild(prefGroup(), prefWrap.lastChild); updateBar();
             } }),
           p.label))),
-      ab ? h('div', { class: 'why' }, h('span', { class: 'why-label' }, 'Main reason:'),
+      ab ? h('div', { class: 'why' }, h('span', { class: 'why-label' }, 'Main reason'),
         PREF_REASONS.map((x) => h('button', { type: 'button', class: `why-btn${ann.prefReason === x.code ? ' is-on' : ''}`, disabled: locked,
           onclick: () => { ann.prefReason = x.code; save({ prefReason: x.code }); prefWrap.replaceChild(prefGroup(), prefWrap.lastChild); updateBar(); } }, x.label))) : null);
   }
   const prefWrap = h('div', { class: 'pref' }, prefGroup());
-  const comment = h('textarea', { rows: 3, maxlength: 2000, disabled: locked, placeholder: 'Optional',
+  const comment = h('textarea', { rows: 3, maxlength: 2000, disabled: locked, placeholder: v3 ? '' : 'Optional',
     oninput: (e) => { ann.comment = e.target.value; clearTimeout(comment._t); comment._t = setTimeout(() => save({ comment: ann.comment }), 600); } }, ann.comment || '');
 
   // ---------- sticky bar ----------
   const bar = h('div', { class: 'submit-bar' });
+  let tab = 'enc';
+  const status = { enc: false, orders: false, workups: false, decision: false };
+  let renderTabs = () => {};
+  let show = () => {};
   function updateBar() {
+    if (v3) return updateBarV3();
     const nItems = order.length;
     const rated = order.filter((id) => ann.items[id]?.r).length;
     const missing = missingForSubmit(caseDoc, ann, cfg);
@@ -474,30 +575,57 @@ export async function renderCase(main, ctx, caseId) {
         : locked
         ? h('span', { class: 'pill pill-done' }, preview ? 'Preview only' : 'Submitted')
         : h('div', { class: 'submit-wrap' },
-          missing.length ? h('span', { class: 'still-needed' }, `Still needed: ${missing.join('; ')}`) : null,
+          missing.length ? h('span', { class: 'still-needed' }, `Still needed · ${missing.join(' · ')}`) : null,
           h('button', { class: 'btn btn-primary', type: 'button', disabled: missing.length > 0,
-            title: missing.length ? `Still needed: ${missing.join(', ')}` : 'Submit this case', onclick: submit },
+            title: missing.length ? `Still needed · ${missing.join(' · ')}` : 'Submit this case', onclick: submit },
           'Submit case')));
+  }
+
+  function workupOk(w) {
+    const wk = ann.workups[w] || {};
+    return !!(wk.quality && wk.error && (wk.error !== 'yes' || (wk.links && Object.keys(wk.links).length && wk.harm && wk.likelihood
+      && (!v3 || (wk.types && Object.keys(wk.types).length)))));
+  }
+  function updateBarV3() {
+    const followUp = (id) => (ann.items[id]?.r === 'N' && !ann.items[id]?.alt) || (ann.items[id]?.r === 'H' && !ann.items[id]?.why);
+    status.orders = order.every((id) => ann.items[id]?.r && !followUp(id));
+    status.workups = workupOk('A') && workupOk('B');
+    status.decision = !!ann.commonOmission && !!ann.preference && (!['A', 'B'].includes(ann.preference) || !!(ann.preferenceStrength && ann.prefReason));
+    renderTabs();
+    const missing = missingForSubmit(caseDoc, ann, cfg);
+    const firstOpen = !status.orders ? 'orders' : !status.workups ? 'workups' : !status.decision ? 'decision' : null;
+    mount(bar,
+      h('div', { class: 'bar-left' }, h('span', { class: 'save-wrap' }, saveState),
+        locked ? null : missing.length
+          ? h('button', { type: 'button', class: 'linklike bar-left-btn', title: missing.join(', '), onclick: () => firstOpen && show(firstOpen) },
+            `${missing.length} answer${missing.length === 1 ? '' : 's'} left`)
+          : h('span', { class: 'bar-ready' }, icon('check', { size: 14 }), 'Ready to submit')),
+      locked && ref && !preview
+        ? h('button', { class: 'btn btn-primary', type: 'button', onclick: () => (ctx.next ? ctx.next() : go('')) }, 'Continue')
+        : locked ? h('span', { class: 'pill pill-done' }, preview ? 'Preview only' : 'Submitted')
+          : h('button', { class: 'btn btn-primary', type: 'button', disabled: missing.length > 0, title: missing.length ? missing.join(', ') : 'Submit this case', onclick: submit }, 'Submit case'));
   }
 
   async function submit() {
     const missing = missingForSubmit(caseDoc, ann, cfg);
-    if (missing.length) { toast(`Still needed: ${missing.join(', ')}`, 'error'); return; }
+    if (missing.length) { toast(`Still needed · ${missing.join(' · ')}`, 'error'); return; }
     const counts = {};
     for (const id of order) counts[ann.items[id].r] = (counts[ann.items[id].r] || 0) + 1;
     const hl = (w) => {
       const wk = ann.workups[w] || {};
-      if (wk.error !== 'yes') return PLAN_ERROR.find((x) => x.code === wk.error)?.label === 'No' ? 'no important error' : 'unable to assess';
-      return `important error, ${(SEVERITY.find((x) => x.code === wk.harm)?.label || '').toLowerCase()} (${(LIKELIHOOD.find((x) => x.code === wk.likelihood)?.label || '').toLowerCase()})`;
+      const q = `Quality ${wk.quality || ''}`;
+      if (wk.error !== 'yes') return `${q}, ${PLAN_ERROR.find((x) => x.code === wk.error)?.label === 'No' ? 'no important error' : 'important error unable to assess'}`;
+      return `${q}, important error, ${(SEVERITY.find((x) => x.code === wk.harm)?.label || '').toLowerCase()} harm, ${(LIKELIHOOD.find((x) => x.code === wk.likelihood)?.label || '').toLowerCase()}`;
     };
     const ok = await confirmDialog({
       title: 'Submit this case?',
       body: h('div', {},
         h('p', {}, 'After submitting you cannot change your answers. If you need to, report a problem and the study team can reopen it.'),
-        h('ul', { class: 'summary' },
-          h('li', {}, `Orders: ${scale.filter((s) => counts[s.code]).map((s) => `${counts[s.code]} ${s.label.toLowerCase()}`).join(', ')}`),
-          h('li', {}, `A: ${hl('A')}. B: ${hl('B')}.`),
-          h('li', {}, `Preference: ${PREFERENCE5.find((p) => p.code === ann.preference && (ann.preferenceStrength || null) === p.strength)?.label}`))),
+        h('dl', { class: 'summary-dl' },
+          order.length ? [h('dt', {}, 'Orders'), h('dd', {}, scale.filter((s) => counts[s.code]).map((s) => `${counts[s.code]} ${s.label.toLowerCase()}`).join(', '))] : null,
+          h('dt', {}, 'Workup A'), h('dd', {}, hl('A')),
+          h('dt', {}, 'Workup B'), h('dd', {}, hl('B')),
+          h('dt', {}, 'Preference'), h('dd', {}, PREFERENCE5.find((p) => p.code === ann.preference && (ann.preferenceStrength || null) === p.strength)?.label || ''))),
       confirm: 'Submit',
     });
     if (!ok) return;
@@ -513,13 +641,13 @@ export async function renderCase(main, ctx, caseId) {
       }
       toast('Submitted. Opening the next one.', 'ok');
       ctx.next ? ctx.next() : go('');
-    } catch (e) { submitted = false; toast(`Could not submit: ${e.message}`, 'error'); }
+    } catch (e) { submitted = false; toast(`Could not submit. ${e.message}`, 'error'); }
   }
 
   async function reportProblem() {
     const ta = h('textarea', { rows: 4, maxlength: 2000, placeholder: 'What is wrong? Do not paste case text.' });
     const ok = await confirmDialog({ title: 'Report a problem with this case', body: h('div', { class: 'stack-sm' },
-      h('p', {}, 'For example: text that reveals the model or the answer, a rendering error, or a submitted answer you need to change.'), ta), confirm: 'Send report' });
+      h('p', {}, 'For example, text that reveals the model or the answer, a display error, or a submitted answer you need to change.'), ta), confirm: 'Send report' });
     if (!ok || !ta.value.trim()) return;
     await store.reportProblem(uid, caseId, ta.value.trim());
     toast('Report sent to the study team.', 'ok');
@@ -557,7 +685,108 @@ export async function renderCase(main, ctx, caseId) {
 
   const nOrders = order.length;
   const exam = sharedExam(caseDoc);
-  mount(main,
+
+  // ---------- v3 (Amendment I, app 3.1): patient banner, then one tab at a time ----------
+  function vitalFlag(k, x) {
+    const n = parseFloat(x);
+    if (k === 'temp') return n >= 38 ? 'H' : n < 36 ? 'L' : null;
+    if (k === 'hr') return n > 100 ? 'H' : n < 50 ? 'L' : null;
+    if (k === 'rr') return n > 20 ? 'H' : n < 10 ? 'L' : null;
+    if (k === 'spo2') return n < 92 ? 'L' : null;
+    if (k === 'bp') { const [sb, db] = String(x).split('/').map(Number); return sb >= 180 || db >= 120 ? 'H' : sb < 90 ? 'L' : null; }
+    return null;
+  }
+  function bannerV3() {
+    const p = caseDoc.patient || {};
+    const v = p.vitals;
+    const vit = v ? [['T', v.temp && v.temp.split(' (')[0], 'temp', v.temp], ['HR', v.hr, 'hr'], ['RR', v.rr, 'rr'], ['SpO₂', v.spo2 && `${v.spo2}%`, 'spo2'],
+      ['BP', v.bp, 'bp'], ['Pain', v.pain], ['ESI', v.acuity && v.acuity.replace('ESI ', '')]].filter(([, x]) => x) : [];
+    const abbr = abbreviationsIn([caseDoc.presentation, ...['A', 'B'].flatMap((w) => (caseDoc.workups?.[w]?.conversation || []).map((m) => m.text))]);
+    const info = h('details', { class: 'info-pop' },
+      h('summary', { 'aria-label': 'About this record' }, icon('info', { size: 16 })),
+      h('div', { class: 'info-pop-body' },
+        h('p', {}, 'On arrival the agents saw only the chief complaint. Sex, age and vital signs come from the hospital record.'),
+        h('p', {}, 'No value or No report means the hospital record has none for that test.'),
+        h('p', {}, advisor ? 'Model reasoning is shown where it was recorded.' : 'Agent reasoning is hidden to keep the reading blind.'),
+        abbr.length ? h('details', { class: 'abbr-list' }, h('summary', {}, `Abbreviations (${abbr.length})`),
+          h('dl', {}, abbr.flatMap(([k, val]) => [h('dt', {}, k), h('dd', {}, val)]))) : null));
+    return h('header', { class: 'pt-banner' },
+      avatar(p.sex, { size: 48 }),
+      h('div', { class: 'pt-id' }, h('p', { class: 'pt-name' }, patientLine(p)), h('p', { class: 'pt-sub' }, title)),
+      h('div', { class: 'pt-arrival' }, h('span', { class: 'pt-k' }, 'Chief complaint'),
+        chiefComplaint(caseDoc.presentation)
+          ? h('p', { class: 'pt-cc' }, withAbbr(chiefComplaint(caseDoc.presentation)))
+          : h('p', { class: 'pt-cc pt-none' }, 'Not recorded. The agents did not have one either.')),
+      h('div', { class: 'pt-vitals' }, vit.length
+        ? vit.map(([k, x, key, full]) => { const f = key ? vitalFlag(key, x) : null;
+          return h('span', { class: `vital${f ? ` vital-${f}` : ''}`, title: full || '' }, h('span', { class: 'vital-k' }, k), h('span', { class: 'vital-v' }, x, f ? (f === 'H' ? ' ▲' : ' ▼') : '')); })
+        : h('span', { class: 'vital vital-none' }, 'No triage vitals')),
+      info);
+  }
+  const panelNav = (prevK, nextK) => h('div', { class: 'panel-nav' },
+    prevK ? h('button', { type: 'button', class: 'btn btn-secondary', onclick: () => show(prevK) }, 'Back') : h('span'),
+    nextK ? h('button', { type: 'button', class: 'btn btn-primary', onclick: () => show(nextK) }, 'Next') : null);
+  const hint = (text) => h('p', { class: 'hint' }, icon('info', { size: 15 }), text);
+  function mountV3() {
+    const encPanel = h('section', { class: 'tab-panel', role: 'tabpanel' },
+      exam ? h('details', { class: 'card exam-shared', open: true }, h('summary', {}, icon('history', { size: 15 }), 'Physical examination', h('span', { class: 'muted small' }, 'same in both workups')),
+        h('p', { class: 'msg-text' }, withAbbr(exam))) : null,
+      h('div', { class: 'two-col conv-cols' },
+        encounterColumn('A', caseDoc.workups.A, { hideExam: !!exam, advisor }),
+        encounterColumn('B', caseDoc.workups.B, { hideExam: !!exam, advisor })),
+      panelNav(null, 'orders'));
+    const ordersPanel = h('section', { class: 'tab-panel', role: 'tabpanel' },
+      nOrders ? hint('Rate each order on what was known when it was placed, not on its result.') : h('p', { class: 'notice' }, 'Both workups placed the same orders. Nothing to rate here.'),
+      bothToggle, ordersGrid, unplacedBox, panelNav('enc', 'workups'));
+    const workupsPanel = h('section', { class: 'tab-panel', role: 'tabpanel' },
+      hint('Both workups can be poor. You may use the results here.'), workupsWrap, panelNav('orders', 'decision'));
+    const decisionPanel = h('section', { class: 'tab-panel', role: 'tabpanel' },
+      h('div', { class: 'card decision v3' },
+        bothWrap,
+        h('hr', { class: 'q-sep' }),
+        qBlock('Which workup would you rather this patient received?', prefWrap),
+        h('label', { class: 'comment-label' }, h('span', { class: 'q-label' }, 'Comment ', h('span', { class: 'optional' }, 'optional')), comment)),
+      panelNav('workups', null));
+    const PANELS = { enc: encPanel, orders: ordersPanel, workups: workupsPanel, decision: decisionPanel };
+    const TABS = [['enc', 'Encounters', 'history'], ['orders', nOrders ? `Orders · ${nOrders}` : 'Orders', 'orders'], ['workups', 'Workups', 'workup'], ['decision', 'Decision', 'decision']];
+    const tabBar = h('nav', { class: 'case-tabs', role: 'tablist', 'aria-label': 'Case sections' });
+    renderTabs = () => mount(tabBar, TABS.map(([k, label, ic], i) => h('button', {
+      type: 'button', role: 'tab', 'aria-selected': tab === k ? 'true' : 'false',
+      class: `case-tab${tab === k ? ' is-on' : ''}${status[k] ? ' is-done' : ''}`, onclick: () => show(k),
+    }, h('span', { class: 'case-tab-num' }, status[k] ? icon('check', { size: 13 }) : String(i + 1)), icon(ic, { size: 15 }), h('span', {}, label))));
+    show = (k) => {
+      if (tab === 'enc' && k !== 'enc') status.enc = true;
+      tab = k;
+      try { sessionStorage.setItem(`case-tab:${caseId}`, k); } catch { /* private mode */ }
+      for (const [kk, el] of Object.entries(PANELS)) el.hidden = kk !== k;
+      renderTabs();
+      const top = tabBar.getBoundingClientRect().top + window.scrollY - 140;
+      if (window.scrollY > top) window.scrollTo({ top, behavior: 'instant' });
+      if (k === 'orders' && current && !locked) setTimeout(() => rowEls[current]?.focus({ preventScroll: true }), 30);
+    };
+    let saved = null;
+    try { saved = sessionStorage.getItem(`case-tab:${caseId}`); } catch { /* private mode */ }
+    tab = PANELS[saved] ? saved : 'enc';
+    if (tab !== 'enc') status.enc = true;
+    for (const [kk, el] of Object.entries(PANELS)) el.hidden = kk !== tab;
+    mount(main,
+      h('section', { class: 'page case v3' },
+        h('div', { class: 'case-head' },
+          h('a', { href: preview ? '#/admin' : '#/', class: 'back' }, '← All cases'),
+          h('div', { class: 'case-title' },
+            asg?.practice ? h('span', { class: 'pill pill-practice' }, 'Practice') : null,
+            caseDoc.synthetic ? h('span', { class: 'pill' }, 'Invented case') : null,
+            locked && !preview ? h('span', { class: 'pill pill-done' }, 'Submitted') : null),
+          h('div', { class: 'case-meta' },
+            h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => openTutorialDialog(cfg.formVersion) }, 'How to rate'),
+            h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: reportProblem }, 'Report a problem'))),
+        preview ? h('p', { class: 'notice' }, 'Study-team preview. Nothing is saved.') : null,
+        advisor && !preview ? h('p', { class: 'notice' }, 'Advisor view. Open cases in any order. Answers are optional.') : null,
+        ref ? h('div', { class: 'notice' }, h('p', {}, 'The study physicians\' answers are shown under yours.'), ref.note ? h('p', {}, ref.note) : null) : null,
+        bannerV3(), tabBar, encPanel, ordersPanel, workupsPanel, decisionPanel, bar));
+  }
+  if (v3) mountV3();
+  if (!v3) mount(main,
     h('section', { class: 'page case' },
       h('div', { class: 'case-head' },
         h('a', { href: preview ? '#/admin' : '#/', class: 'back' }, '← All cases'),

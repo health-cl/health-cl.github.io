@@ -158,7 +158,7 @@ function renderShell() {
     ),
     h('main', { id: 'main', class: 'main', tabindex: '-1' }),
     h('footer', { class: 'footer' },
-      h('span', {}, state.config.contact ? `Questions: ${state.config.contact}` : ''),
+      h('span', {}, state.config.contact ? `Questions to ${state.config.contact}` : ''),
       h('span', {}, `Guidelines ${(state.config.guidelinesVersion || GUIDELINES_VERSION).replace(/-draft$/, '')}`),
     ),
   );
@@ -169,7 +169,7 @@ function renderStatus() {
   const el = document.getElementById('conn');
   if (!el) return;
   el.className = `conn ${state.online ? 'conn-on' : 'conn-off'}`;
-  el.textContent = state.online ? 'Online' : 'Offline: answers will sync when you reconnect';
+  el.textContent = state.online ? 'Online' : 'Offline. Answers sync when you reconnect';
 }
 
 function demoBanner() {
@@ -185,8 +185,8 @@ function demoBanner() {
   );
 }
 
-window.addEventListener('error', (e) => toast(`Something went wrong: ${e.message}`, 'error'));
-window.addEventListener('unhandledrejection', (e) => toast(`Could not complete: ${e.reason?.message || e.reason}`, 'error'));
+window.addEventListener('error', (e) => toast(`Something went wrong. ${e.message}`, 'error'));
+window.addEventListener('unhandledrejection', (e) => toast(`Could not complete. ${e.reason?.message || e.reason}`, 'error'));
 
 boot();
 

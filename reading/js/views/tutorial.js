@@ -29,7 +29,7 @@ export const TUTORIAL_STEPS = [
   {
     title: 'Rate each order found in one workup only',
     body: (scale) => [
-      h('p', {}, h('b', {}, 'Rate each order on what was known when it was placed: '), "the history from either conversation, the examination, and the patient's sex and age. Do not use the results to rate an order."),
+      h('p', {}, h('b', {}, 'Rate each order on what was known when it was placed: '), "the history from either conversation, the examination, and the patient's sex, age and triage vital signs. Do not use the results to rate an order."),
       h('dl', { class: 'tut-scale' }, scale.map((s) => [h('dt', {}, h('span', { class: `scale-pill chip-${s.cls}` }, s.label)), h('dd', {}, s.short)])),
       h('p', {}, "For Necessary, say whether the other workup meets the same need another way. For Harmful, choose the main reason. Orders in both workups are marked 'in both · not rated'."),
     ],

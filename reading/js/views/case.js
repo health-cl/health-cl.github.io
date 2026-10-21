@@ -533,15 +533,21 @@ export async function renderCase(main, ctx, caseId) {
     if (!locked && !submitted) save({ activeSeconds: active });
   });
 
+  function vitalsList(v) {
+    if (!v) return h('p', { class: 'vitals vitals-none' }, 'No triage vital signs in the record. The examination may list them.');
+    const parts = [['T', v.temp], ['HR', v.hr], ['RR', v.rr], ['SpO₂', v.spo2 && `${v.spo2}%`], ['BP', v.bp], ['Pain', v.pain], ['Acuity', v.acuity]].filter(([, x]) => x);
+    return h('dl', { class: 'vitals', 'aria-label': 'Triage vital signs' }, parts.flatMap(([k, x]) => [h('dt', {}, k), h('dd', {}, x)]));
+  }
   function patientCard() {
     const abbr = abbreviationsIn([caseDoc.presentation, ...['A', 'B'].flatMap((w) => (caseDoc.workups?.[w]?.conversation || []).map((m) => m.text))]);
     return h('div', { class: 'card patient' },
       h('div', { class: 'patient-main' },
-        h('div', { class: 'patient-id' }, h('span', { class: 'card-title' }, 'Patient'), h('p', { class: 'patient-line' }, patientLine(caseDoc.patient))),
-        h('div', { class: 'patient-arrival' }, h('span', { class: 'card-title' }, 'On arrival'), h('p', { class: 'arrival-text' }, withAbbr(caseDoc.presentation)),
+        h('div', { class: 'patient-id' }, h('span', { class: 'card-title' }, 'Patient'), h('p', { class: 'patient-line' }, patientLine(caseDoc.patient)),
+          vitalsList(caseDoc.patient?.vitals)),
+        h('div', { class: 'patient-arrival' }, h('span', { class: 'card-title' }, 'On arrival · the line both agents received'), h('p', { class: 'arrival-text' }, withAbbr(caseDoc.presentation)),
           noPrimarySymptom(caseDoc.presentation) ? h('p', { class: 'presentation-note' }, NO_SYMPTOM_NOTE) : null)),
       h('ul', { class: 'patient-notes' },
-        h('li', {}, 'Sex and age are from the hospital record. The agents were not told them; they knew them only if the patient or the examination said so.'),
+        h('li', {}, 'Sex, age and triage vital signs are from the hospital record. The agents were not given them and had no tool for vital signs; they knew them only if the patient or the examination said so.'),
         h('li', {}, 'Results are what the hospital record held for this patient. “No value in the hospital record” means the hospital did not measure it; it does not say whether the test was needed.'),
         h('li', {}, advisor ? 'Advisor view: the reasoning summaries the model recorded are shown where they exist.'
           : 'The agents’ private reasoning is not shown, to keep the reading blind. You see everything each agent wrote, ordered and received.')),
@@ -591,12 +597,12 @@ export async function renderCase(main, ctx, caseId) {
           : 'Both workups placed the same orders'),
         nOrders ? null : h('p', { class: 'notice' }, 'Nothing to rate here. Review the orders, then rate each workup as a whole below.'),
         v3 && nOrders ? h('p', { class: 'rate-note' }, h('b', {}, 'Rate each order on what was known when it was placed: '),
-          'the history from either conversation, the examination, and the patient\'s sex and age. Do not use the results to rate an order; use them for the questions about each workup below.') : null,
+          'the history from either conversation, the examination, and the patient\'s sex, age and triage vital signs. Do not use the results to rate an order; use them for the questions about each workup below.') : null,
         bothToggle, bothNote, ordersGrid, unplacedBox),
 
       h('section', { class: 'block' },
         h('h2', { class: 'block-title' }, h('span', { class: 'step' }, '3'), 'Each workup'),
-        h('p', { class: 'block-note' }, 'Rate the overall quality of each workup as care for this patient. An important error is one you would correct before care proceeds: something needed left out, a treatment started before the test it depends on, or an order that could harm this patient. Mark it even if harm is unlikely; severity and likelihood record how serious it is.'),
+        h('p', { class: 'block-note' }, (v3 ? 'Both workups can be poor; the differences between them still matter. Here you may use everything shown, including the results and the final diagnosis. ' : '') + 'Rate the overall quality of each workup as care for this patient. An important error is one you would correct before care proceeds: something needed left out, a treatment started before the test it depends on, or an order that could harm this patient. Mark it even if harm is unlikely; severity and likelihood record how serious it is.'),
         workupsWrap),
 
       h('section', { class: 'block' },

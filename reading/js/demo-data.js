@@ -61,7 +61,7 @@ const DEMO_P1_REFERENCE = {
 
 const PANC = {
   id: 'DEMO-P1',
-  patient: { sex: 'Male', age: '52' },
+  patient: { sex: 'Male', age: '52', vitals: { temp: '37.4 °C (99.3 °F)', hr: '104', rr: '20', spo2: '97', bp: '138/86', pain: '8/10', acuity: 'ESI 3' } },
   presentation: 'The patient you are now seeing has primary symptoms: epigastric pain radiating to the back, vomiting.',
   conv: {
     A: [

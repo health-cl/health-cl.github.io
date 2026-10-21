@@ -296,7 +296,7 @@ export function withAbbr(text) {
   if (!text) return text;
   const s = String(text);
   const out = []; let last = 0;
-  for (const m of s.matchAll(/_{3,}/g)) {
+  for (const m of s.matchAll(/_{3,}|\[removed\]/g)) {
     if (m.index > last) out.push(...abbrPart(s.slice(last, m.index)));
     out.push(h('span', { class: 'deid', title: 'Removed from the record for privacy' }, 'removed'));
     last = m.index + m[0].length;

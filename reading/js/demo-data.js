@@ -72,26 +72,26 @@ const PANC = {
   presentation: 'The patient you are now seeing has primary symptoms: epigastric pain radiating to the back, vomiting.',
   conv: {
     A: [
-      A('Hello, I am the emergency physician on duty. I understand you have pain in the upper part of your stomach. When did it start, and does it go anywhere?'),
-      P('It started last night after dinner, maybe ten hours ago. It goes straight through to my back. I have thrown up four times.'),
+      A('Hello, I am the emergency physician on duty. I understand you have pain in the upper part of your stomach.\n\nTo understand what is going on, could you tell me:\n1. **When** did the pain start, and does it go anywhere, such as your back?\n2. Have you **vomited**, and if so, was there any blood?'),
+      P('It started last night after a big dinner, maybe ten hours ago. At first it was a dull ache, but over a few hours it got much worse and now it goes straight through to my back. I have thrown up four times, no blood that I saw. Lying flat makes it worse, so I have been sitting up and leaning forward most of the night.'),
       A('Thank you. Do you drink alcohol, and have you had anything like this before? Any gallstones?'),
       P('I drink most days, about six beers. Never had this before. Nobody ever said anything about gallstones.'),
       A('Any medical problems or regular medicines? Any allergies?'),
       P('High blood pressure, I take lisinopril. No allergies.'),
-      R('physical examination', 'Uncomfortable, leaning forward. Mucous membranes dry. Epigastric tenderness with voluntary guarding, no rebound. Murphy sign negative. No jaundice. Lungs clear.'),
+      R('physical examination', 'VS: T99.3 104 138/86 20 97%RA GEN: Uncomfortable, leaning forward, mild distress HEENT: Dry MM, anicteric sclerae ___: Tachycardic, regular, no m/r/g RESP: CTAB, no increased WOB ABD: Soft, ND, epigastric ttp with voluntary guarding, no rebound. Murphy sign negative. EXT: WWP, no edema NEURO: AAOx3, moving all extremities'),
     ],
     B: [
       A('Hello, I am the emergency physician. Tell me about the pain you came in with.'),
       P('Upper belly, since last night, going through to my back. Vomited a few times.'),
       A('How much alcohol do you usually drink, and have you had fevers?'),
       P('About six beers most days. No fever that I know of.'),
-      R('physical examination', 'Uncomfortable, leaning forward. Mucous membranes dry. Epigastric tenderness with voluntary guarding, no rebound. Murphy sign negative. No jaundice. Lungs clear.'),
+      R('physical examination', 'VS: T99.3 104 138/86 20 97%RA GEN: Uncomfortable, leaning forward, mild distress HEENT: Dry MM, anicteric sclerae ___: Tachycardic, regular, no m/r/g RESP: CTAB, no increased WOB ABD: Soft, ND, epigastric ttp with voluntary guarding, no rebound. Murphy sign negative. EXT: WWP, no edema NEURO: AAOx3, moving all extremities'),
     ],
   },
   steps: {
     A: [
       { reasoning: 'Epigastric pain to the back with heavy alcohol use: pancreatitis first, biliary colic and peptic ulcer next. Start with blood tests and fluids; image only if the lipase or the liver tests point to the biliary tree.',
-        text: 'I will start with blood tests and fluids for you, and something for the nausea and pain.',
+        text: 'Thank you. Based on what you have told me, I want to check your blood and start treatment.\n\n### Plan\n1. **Blood tests**: blood count, chemistry, liver tests, lipase and lactate.\n2. **Treatment**:\n   - **Fluids**: Lactated Ringer\'s through an IV.\n   - **Nausea and pain**: ondansetron and morphine.\n\n---\nI will come back as soon as the results are in.',
         orders: { 'Blood tests': ['Complete blood count with differential | WBC, hemoglobin, platelets, differential', 'Basic metabolic panel | sodium, potassium, chloride, bicarbonate, BUN, creatinine, glucose, calcium',
           'Hepatic function panel | AST, ALT, ALP, total bilirubin, albumin', 'Lipase', '*Lactate'],
           'Medications': ["Lactated ringer's | 1000 mL, intravenous", 'Ondansetron | 4 mg, intravenous', '*Morphine | 4 mg, intravenous'] },
@@ -105,7 +105,7 @@ const PANC = {
         orders: { 'Imaging': ['*Abdominal ultrasound | right upper quadrant, gallstones in first episode of pancreatitis'] },
         results: [report('Imaging', 'Gallbladder is distended with multiple small mobile stones. No gallbladder wall thickening or pericholecystic fluid. Common bile duct 4 mm. Pancreas partly obscured by bowel gas. No prior study at ___ for comparison.')],
         reply: 'Okay, thank you, doctor.', seen: true },
-      { noOrders: true, finish: true, text: 'This looks like acute pancreatitis, most likely from gallstones. We will admit you for fluids and pain control and ask the surgeons to see you about the gallbladder.' },
+      { noOrders: true, finish: true, text: 'I have completed your emergency workup.\n\n### Summary of Care\n1. **Diagnosis**: Acute pancreatitis, most likely from gallstones.\n2. **Findings**: lipase about forty times normal, *mild* rise in ALT, gallstones on ultrasound.\n3. **Plan**:\n   - Admit for IV fluids and pain control.\n   - Ask the **general surgery** team about the gallbladder.\n\nDo you have any questions before we move you upstairs?' },
     ],
     B: [
       { reasoning: 'Severe epigastric pain: cover pancreatitis, perforation and ischaemia at once with CT, and start broad antibiotics.',

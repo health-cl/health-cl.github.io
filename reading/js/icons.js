@@ -19,6 +19,9 @@ const PATHS = {
   check: ['M5 12.5l4.5 4.5L19 7.5'],
   clock: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M12 7v5l3.5 2'],
   chevron: ['M9 6l6 6-6 6'],
+  agent: ['M12 3.5v2.5', 'M7.5 6h9A2.5 2.5 0 0 1 19 8.5v7a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 15.5v-7A2.5 2.5 0 0 1 7.5 6z', 'M9.5 11.2v.6', 'M14.5 11.2v.6', 'M9.5 14.8h5', 'M3 11v3', 'M21 11v3'],
+  patient: ['M12 11.5a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5z', 'M4.5 20.5c.7-3.9 3.7-6.3 7.5-6.3s6.8 2.4 7.5 6.3'],
+  exam: ['M6 3.5v5a4 4 0 0 0 8 0v-5', 'M10 12.5v2a4.5 4.5 0 0 0 9 0v-1.5', 'M19 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4z'],
 };
 
 export function icon(name, { size = 16, cls = '' } = {}) {
@@ -43,43 +46,36 @@ export function icon(name, { size = 16, cls = '' } = {}) {
 
 export const PANEL_ICON = { 'Blood tests': 'blood', 'Urine tests': 'urine', Microbiology: 'micro', Imaging: 'imaging', Procedures: 'procedure', Medications: 'medication' };
 
-// Patient silhouette, as the photo placeholder of a hospital chart: female, male or unknown.
-export function avatar(sex, { size = 56 } = {}) {
+// Patient icon for the chart header: one neutral person, with a small badge for the recorded sex (female, male) and none
+// when it is not recorded.
+export function avatar(sex, { size = 44 } = {}) {
+  const k = sex === 'Female' ? 'f' : sex === 'Male' ? 'm' : 'u';
   const svg = document.createElementNS(NS, 'svg');
-  svg.setAttribute('viewBox', '0 0 56 56');
+  svg.setAttribute('viewBox', '0 0 48 48');
   svg.setAttribute('width', String(size));
   svg.setAttribute('height', String(size));
-  svg.setAttribute('class', `avatar avatar-${sex === 'Female' ? 'f' : sex === 'Male' ? 'm' : 'u'}`);
+  svg.setAttribute('class', `avatar avatar-${k}`);
   svg.setAttribute('role', 'img');
-  svg.setAttribute('aria-label', sex === 'Female' ? 'Woman' : sex === 'Male' ? 'Man' : 'Sex not recorded');
-  const add = (tag, attrs) => {
+  svg.setAttribute('aria-label', k === 'f' ? 'Woman' : k === 'm' ? 'Man' : 'Sex not recorded');
+  const add = (parent, tag, attrs) => {
     const el = document.createElementNS(NS, tag);
-    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-    svg.appendChild(el);
+    for (const [a, v] of Object.entries(attrs)) el.setAttribute(a, v);
+    parent.appendChild(el);
     return el;
   };
-  add('circle', { cx: '28', cy: '28', r: '28', class: 'av-bg' });
-  const clip = add('clipPath', { id: `avc-${Math.random().toString(36).slice(2, 8)}` });
-  const cc = document.createElementNS(NS, 'circle');
-  cc.setAttribute('cx', '28'); cc.setAttribute('cy', '28'); cc.setAttribute('r', '28');
-  clip.appendChild(cc);
-  const g = add('g', { 'clip-path': `url(#${clip.getAttribute('id')})`, class: 'av-fg' });
-  const part = (tag, attrs) => {
-    const el = document.createElementNS(NS, tag);
-    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-    g.appendChild(el);
-  };
-  if (sex === 'Female') {
-    part('path', { d: 'M16.5 30c-1.5-10 3.5-17.5 11.5-17.5S41 20 39.5 30c-.6 4 .8 7.5 2.5 9.5H14c1.7-2 3.1-5.5 2.5-9.5z', class: 'av-hair' });
-    part('ellipse', { cx: '28', cy: '24.5', rx: '7.6', ry: '8.6' });
-    part('path', { d: 'M9 58c0-11 8.5-17.5 19-17.5S47 47 47 58z' });
-  } else if (sex === 'Male') {
-    part('path', { d: 'M20 21.5c0-6 3.6-9.3 8-9.3s8 3.3 8 9.3c-1.5-2.4-4.4-3.4-8-3.4s-6.5 1-8 3.4z', class: 'av-hair' });
-    part('ellipse', { cx: '28', cy: '24', rx: '8', ry: '9' });
-    part('path', { d: 'M7 58c0-12 9-18.5 21-18.5S49 46 49 58z' });
-  } else {
-    part('circle', { cx: '28', cy: '23.5', r: '8.5' });
-    part('path', { d: 'M8 58c0-11.5 9-18 20-18s20 6.5 20 18z' });
+  add(svg, 'circle', { cx: '22', cy: '22', r: '21', class: 'av-bg' });
+  // Material Design "person" glyph (Apache 2.0), scaled into the circle
+  add(svg, 'path', { class: 'av-fg', transform: 'translate(6 6) scale(1.333)', d: 'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z' });
+  if (k !== 'u') {
+    add(svg, 'circle', { cx: '37', cy: '37', r: '10', class: `av-badge av-badge-${k}` });
+    const g = add(svg, 'g', { class: 'av-sym', fill: 'none', 'stroke-width': '2', 'stroke-linecap': 'round' });
+    if (k === 'f') {
+      add(g, 'circle', { cx: '37', cy: '34.5', r: '3.6' });
+      add(g, 'path', { d: 'M37 38.1v5.4M34.6 41.2h4.8' });
+    } else {
+      add(g, 'circle', { cx: '35.6', cy: '38.4', r: '3.6' });
+      add(g, 'path', { d: 'M38.2 35.8l3.6-3.6M38.6 32.2h3.2v3.2' });
+    }
   }
   return svg;
 }

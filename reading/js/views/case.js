@@ -5,6 +5,7 @@ import { withAbbr, abbreviationsIn } from '../abbreviations.js';
 import { ORDER_SCALES, HARM_LEVELS, HARM_REASONS, LIKELIHOOD, PREFERENCE5, ALT_OPTIONS, PLAN_ERROR, SEVERITY, COMMON_OMISSION, PREF_REASONS, WORKUP_QUALITY, ERROR_TYPES, missingForSubmit, APP_VERSION, GUIDELINES_VERSION } from '../schema.js';
 import { patientLine, encounterColumn, stepChip, lineDetail } from './encounter.js';
 import { icon, avatar, PANEL_ICON } from '../icons.js';
+import { examView } from '../richtext.js';
 
 export const PANEL_ORDER = ['Blood tests', 'Urine tests', 'Microbiology', 'Imaging', 'Procedures', 'Medications'];
 const IDLE_LIMIT_S = 120;
@@ -654,6 +655,7 @@ export async function renderCase(main, ctx, caseId) {
   }
 
   setCleanup(() => {
+    document.body.classList.remove('on-case');
     clearInterval(tick);
     document.removeEventListener('keydown', onKey);
     window.removeEventListener('beforeunload', beforeUnload);
@@ -699,8 +701,10 @@ export async function renderCase(main, ctx, caseId) {
   function bannerV3() {
     const p = caseDoc.patient || {};
     const v = p.vitals;
-    const vit = v ? [['T', v.temp && v.temp.split(' (')[0], 'temp', v.temp], ['HR', v.hr, 'hr'], ['RR', v.rr, 'rr'], ['SpO₂', v.spo2 && `${v.spo2}%`, 'spo2'],
-      ['BP', v.bp, 'bp'], ['Pain', v.pain], ['ESI', v.acuity && v.acuity.replace('ESI ', '')]].filter(([, x]) => x) : [];
+    // label, value, unit, flag key, tooltip: a triage flowsheet row as the record has it
+    const vit = v ? [['Temp', v.temp && v.temp.split(' (')[0].replace(/\s*°C$/, ''), '°C', 'temp', v.temp], ['HR', v.hr, 'bpm', 'hr'], ['RR', v.rr, '/min', 'rr'],
+      ['SpO₂', v.spo2, '%', 'spo2'], ['BP', v.bp, 'mmHg', 'bp'], ['Pain', v.pain && String(v.pain).replace(/\/10$/, ''), '/10'],
+      ['ESI', v.acuity && String(v.acuity).replace(/^ESI\s*/, ''), '', 'esi', 'Emergency Severity Index, 1 most urgent to 5 least']].filter(([, x]) => x) : [];
     const abbr = abbreviationsIn([caseDoc.presentation, ...['A', 'B'].flatMap((w) => (caseDoc.workups?.[w]?.conversation || []).map((m) => m.text))]);
     const info = h('details', { class: 'info-pop' },
       h('summary', { 'aria-label': 'About this record' }, icon('info', { size: 16 })),
@@ -711,16 +715,21 @@ export async function renderCase(main, ctx, caseId) {
         abbr.length ? h('details', { class: 'abbr-list' }, h('summary', {}, `Abbreviations (${abbr.length})`),
           h('dl', {}, abbr.flatMap(([k, val]) => [h('dt', {}, k), h('dd', {}, val)]))) : null));
     return h('header', { class: 'pt-banner' },
-      avatar(p.sex, { size: 48 }),
-      h('div', { class: 'pt-id' }, h('p', { class: 'pt-name' }, patientLine(p)), h('p', { class: 'pt-sub' }, title)),
+      h('div', { class: 'pt-who' }, avatar(p.sex, { size: 44 }),
+        h('div', { class: 'pt-id' }, h('p', { class: 'pt-name' }, patientLine(p)), h('p', { class: 'pt-sub' }, title))),
       h('div', { class: 'pt-arrival' }, h('span', { class: 'pt-k' }, 'Chief complaint'),
         chiefComplaint(caseDoc.presentation)
           ? h('p', { class: 'pt-cc' }, withAbbr(chiefComplaint(caseDoc.presentation)))
           : h('p', { class: 'pt-cc pt-none' }, 'Not recorded. The agents did not have one either.')),
-      h('div', { class: 'pt-vitals' }, vit.length
-        ? vit.map(([k, x, key, full]) => { const f = key ? vitalFlag(key, x) : null;
-          return h('span', { class: `vital${f ? ` vital-${f}` : ''}`, title: full || '' }, h('span', { class: 'vital-k' }, k), h('span', { class: 'vital-v' }, x, f ? (f === 'H' ? ' ▲' : ' ▼') : '')); })
-        : h('span', { class: 'vital vital-none' }, 'No triage vitals')),
+      h('div', { class: 'pt-vitals' }, h('span', { class: 'pt-k' }, 'Triage vital signs'), vit.length
+        ? h('table', { class: 'vitals-grid' },
+          h('thead', {}, h('tr', {}, vit.map(([k]) => h('th', { scope: 'col' }, k)))),
+          h('tbody', {}, h('tr', {}, vit.map(([, x, unit, key, full]) => {
+            const f = key && key !== 'esi' ? vitalFlag(key, x) : null;
+            return h('td', { class: key === 'esi' ? `esi-cell esi-${x}` : f ? `vital-${f}` : '', title: full || '' },
+              h('span', { class: 'vital-v' }, x), h('span', { class: 'vital-u' }, unit), f ? h('span', { class: 'vital-f', 'aria-label': f === 'H' ? 'high' : 'low' }, f === 'H' ? '▲' : '▼') : null);
+          }))))
+        : h('p', { class: 'pt-none-v' }, 'None in the record. The examination may give them.')),
       info);
   }
   const panelNav = (prevK, nextK) => h('div', { class: 'panel-nav' },
@@ -729,8 +738,8 @@ export async function renderCase(main, ctx, caseId) {
   const hint = (text) => h('p', { class: 'hint' }, icon('info', { size: 15 }), text);
   function mountV3() {
     const encPanel = h('section', { class: 'tab-panel', role: 'tabpanel' },
-      exam ? h('details', { class: 'card exam-shared', open: true }, h('summary', {}, icon('history', { size: 15 }), 'Physical examination', h('span', { class: 'muted small' }, 'same in both workups')),
-        h('p', { class: 'msg-text' }, withAbbr(exam))) : null,
+      exam ? h('section', { class: 'card exam-shared' }, h('h3', { class: 'exam-head' }, icon('exam', { size: 16 }), 'Physical examination', h('span', { class: 'muted small' }, 'same in both workups')),
+        examView(exam)) : null,
       h('div', { class: 'two-col conv-cols' },
         encounterColumn('A', caseDoc.workups.A, { hideExam: !!exam, advisor }),
         encounterColumn('B', caseDoc.workups.B, { hideExam: !!exam, advisor })),
@@ -753,15 +762,14 @@ export async function renderCase(main, ctx, caseId) {
     renderTabs = () => mount(tabBar, TABS.map(([k, label, ic], i) => h('button', {
       type: 'button', role: 'tab', 'aria-selected': tab === k ? 'true' : 'false',
       class: `case-tab${tab === k ? ' is-on' : ''}${status[k] ? ' is-done' : ''}`, onclick: () => show(k),
-    }, h('span', { class: 'case-tab-num' }, status[k] ? icon('check', { size: 13 }) : String(i + 1)), icon(ic, { size: 15 }), h('span', {}, label))));
+    }, h('span', { class: 'case-tab-num' }, status[k] ? icon('check', { size: 12 }) : String(i + 1)), h('span', {}, label))));
     show = (k) => {
       if (tab === 'enc' && k !== 'enc') status.enc = true;
       tab = k;
       try { sessionStorage.setItem(`case-tab:${caseId}`, k); } catch { /* private mode */ }
       for (const [kk, el] of Object.entries(PANELS)) el.hidden = kk !== k;
       renderTabs();
-      const top = tabBar.getBoundingClientRect().top + window.scrollY - 140;
-      if (window.scrollY > top) window.scrollTo({ top, behavior: 'instant' });
+      window.scrollTo({ top: 0, behavior: 'instant' });
       if (k === 'orders' && current && !locked) setTimeout(() => rowEls[current]?.focus({ preventScroll: true }), 30);
     };
     let saved = null;
@@ -769,21 +777,25 @@ export async function renderCase(main, ctx, caseId) {
     tab = PANELS[saved] ? saved : 'enc';
     if (tab !== 'enc') status.enc = true;
     for (const [kk, el] of Object.entries(PANELS)) el.hidden = kk !== tab;
+    // The case header stays on screen: tabs on top, the patient under them. The app's own top bar scrolls away on a case page.
+    document.body.classList.add('on-case');
     mount(main,
       h('section', { class: 'page case v3' },
-        h('div', { class: 'case-head' },
-          h('a', { href: preview ? '#/admin' : '#/', class: 'back' }, '← All cases'),
-          h('div', { class: 'case-title' },
-            asg?.practice ? h('span', { class: 'pill pill-practice' }, 'Practice') : null,
-            caseDoc.synthetic ? h('span', { class: 'pill' }, 'Invented case') : null,
-            locked && !preview ? h('span', { class: 'pill pill-done' }, 'Submitted') : null),
-          h('div', { class: 'case-meta' },
-            h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => openTutorialDialog(cfg.formVersion) }, 'How to rate'),
-            h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: reportProblem }, 'Report a problem'))),
+        h('div', { class: 'case-top' },
+          h('div', { class: 'case-bar' },
+            h('a', { href: preview ? '#/admin' : '#/', class: 'back' }, '← All cases'),
+            tabBar,
+            h('div', { class: 'case-meta' },
+              asg?.practice ? h('span', { class: 'pill pill-practice' }, 'Practice') : null,
+              caseDoc.synthetic ? h('span', { class: 'pill' }, 'Invented case') : null,
+              locked && !preview ? h('span', { class: 'pill pill-done' }, 'Submitted') : null,
+              h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => openTutorialDialog(cfg.formVersion) }, 'How to rate'),
+              h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: reportProblem }, 'Report a problem'))),
+          bannerV3()),
         preview ? h('p', { class: 'notice' }, 'Study-team preview. Nothing is saved.') : null,
         advisor && !preview ? h('p', { class: 'notice' }, 'Advisor view. Open cases in any order. Answers are optional.') : null,
         ref ? h('div', { class: 'notice' }, h('p', {}, 'The study physicians\' answers are shown under yours.'), ref.note ? h('p', {}, ref.note) : null) : null,
-        bannerV3(), tabBar, encPanel, ordersPanel, workupsPanel, decisionPanel, bar));
+        encPanel, ordersPanel, workupsPanel, decisionPanel, bar));
   }
   if (v3) mountV3();
   if (!v3) mount(main,

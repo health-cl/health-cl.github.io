@@ -1,6 +1,7 @@
 import { h, mount } from '../dom.js';
 import { withAbbr } from '../abbreviations.js';
 import { icon, PANEL_ICON } from '../icons.js';
+import { md, inline, examView } from '../richtext.js';
 
 // Reading display v3 (Amendment I): each workup as one encounter in time order. Display only; nothing here is stored.
 // Case text is shown as the record and the agents produced it; the only transformations are layout and the
@@ -16,8 +17,10 @@ export function patientLine(p) {
   return age ? `${sex}, ${age}` : sex;
 }
 
-function clampText(text, lines = 4, cls = '') {
-  const p = h('p', { class: `msg-text clamp clamp-${lines} ${cls}` }, withAbbr(text));
+// kind: 'md' (agent and patient messages), 'exam' (label and finding table), 'plain' (reports, kept as the record wrote them)
+function clampText(text, lines = 4, cls = '', kind = 'md') {
+  const body = kind === 'exam' ? examView(text) : kind === 'md' ? md(text) : withAbbr(text);
+  const p = h('div', { class: `msg-text clamp clamp-${lines} ${kind === 'plain' ? 'pre' : 'md'} ${cls}` }, body);
   const btn = h('button', { type: 'button', class: 'linklike more' }, 'More');
   btn.onclick = () => { const open = p.classList.toggle('is-open'); btn.textContent = open ? 'Less' : 'More'; };
   const t = String(text || '');
@@ -43,6 +46,8 @@ const CHART_ORDER = {
     'Bilirubin', 'Urobilinogen', 'RBC', 'WBC', 'Bacteria', 'Yeast', 'Epithelial Cells'],
   'Blood gas': ['pH', 'pCO2', 'pO2', 'Base Excess'],
 };
+// Names as a chart prints them where the record's name is long; the record's name is the tooltip.
+const CHART_NAME = { 'Alanine Aminotransferase (ALT)': 'ALT', 'Aspartate Aminotransferase (AST)': 'AST' };
 const chartSort = (g, rs) => {
   const ord = CHART_ORDER[g];
   if (!ord) return rs;
@@ -68,7 +73,7 @@ function labTable(rows) {
     if (!single([g, rs0])) body.push(h('tr', { class: 'lab-group' }, h('th', { colspan: '3', scope: 'colgroup' }, g)));
     for (const r of rs) {
       body.push(h('tr', { class: r.flag ? `is-flag is-${r.flag}` : '' },
-        h('td', { class: 'lab-test' }, r.test),
+        h('td', { class: 'lab-test', title: CHART_NAME[r.test] ? r.test : null }, CHART_NAME[r.test] || r.test),
         h('td', { class: 'lab-res num' },
           r.flag ? h('span', { class: `lab-arrow lab-arrow-${r.flag}`, title: r.flag === 'H' ? 'Above range' : 'Below range' }, r.flag === 'H' ? '▲' : '▼') : null,
           h('span', { class: 'lab-val' }, r.value), r.unit ? h('span', { class: 'lab-unit' }, r.unit) : null),
@@ -104,7 +109,7 @@ function resultBlock(r) {
     }
   }
   return h('div', { class: 'res res-text' }, h('h5', { class: 'res-head' }, icon(PANEL_ICON[r.panel] || 'results', { size: 14 }), title),
-    clampText(body, 8, 'report'));
+    clampText(body, 8, 'report', 'plain'));
 }
 
 // Order acknowledgments (medications, procedures) are kept in the case but are not results.
@@ -143,17 +148,30 @@ export function agentQuestions(text) {
   return out;
 }
 
+const isExam = (m) => m.who === 'result' && /physical exam/i.test(m.label || '');
+// One speaker turn: icon, who, then the text, on the speaker's own background.
+export function bubble(who, content, { label } = {}) {
+  const ic = who === 'agent' ? 'agent' : who === 'patient' ? 'patient' : 'exam';
+  const name = label || (who === 'agent' ? 'Agent' : who === 'patient' ? 'Patient' : 'Examination');
+  return h('div', { class: `bubble bubble-${who}` },
+    h('span', { class: 'bubble-av', 'aria-hidden': 'true' }, icon(ic, { size: 15 })),
+    h('div', { class: 'bubble-body' }, h('span', { class: 'bubble-who' }, name), content));
+}
+
 export function historyList(conv, { compact = true, hideExam = false } = {}) {
   const body = h('ol', { class: 'conv' });
   let full = !compact;
-  const render = () => mount(body, (conv || []).filter((m) => !(hideExam && m.who === 'result' && /physical exam/i.test(m.label || ''))).map((m) => {
-    const label = m.who === 'agent' ? 'Agent' : m.who === 'patient' ? 'Patient' : (m.label ? m.label[0].toUpperCase() + m.label.slice(1) : 'Result');
+  // The agent's searches of the procedure list are tool output, not part of a chart, and are not shown.
+  const shown = (conv || []).filter((m) => !(hideExam && isExam(m)) && !(m.who === 'result' && /catalogue search/i.test(m.label || '')));
+  const render = () => mount(body, shown.map((m) => {
     if (m.who === 'agent' && !full) {
       const qs = agentQuestions(m.text);
-      return h('li', { class: 'msg msg-agent msg-compact' }, h('span', { class: 'msg-who' }, 'Agent'),
-        qs.length ? h('ul', { class: 'asked' }, qs.map((q) => h('li', {}, withAbbr(q)))) : h('p', { class: 'msg-text muted' }, withAbbr(m.text)));
+      return h('li', { class: 'msg' }, bubble('agent', qs.length ? h('ul', { class: 'asked' }, qs.map((q) => h('li', {}, inline(q))))
+        : h('div', { class: 'msg-text md' }, md(m.text))));
     }
-    return h('li', { class: `msg msg-${m.who}` }, h('span', { class: 'msg-who' }, label), h('p', { class: 'msg-text' }, withAbbr(m.text)));
+    if (m.who === 'agent' || m.who === 'patient') return h('li', { class: 'msg' }, bubble(m.who, h('div', { class: 'msg-text md' }, md(m.text))));
+    return h('li', { class: 'msg' }, bubble('result', isExam(m) ? examView(m.text) : h('div', { class: 'msg-text pre' }, withAbbr(m.text)),
+      { label: isExam(m) ? 'Physical examination' : (m.label ? m.label[0].toUpperCase() + m.label.slice(1) : 'Result') }));
   }));
   render();
   const toggle = compact ? h('button', { type: 'button', class: 'linklike conv-toggle' }, 'Full text') : null;
@@ -181,17 +199,17 @@ function stepBlock(st, prevStep, advisor) {
       h('h4', { class: 'tl-title' }, st.finish ? 'Final message' : 'Next message', h('span', { class: 'tl-sub' }, 'no new orders')));
   return h('li', { class: `tl-step${st.finish ? ' is-final' : ''}` }, head,
     h('div', { class: 'tl-body' },
-      advisor && st.reasoning ? h('details', { class: 'reasoning' }, h('summary', {}, 'Model reasoning'), h('p', { class: 'msg-text' }, st.reasoning)) : null,
+      advisor && st.reasoning ? h('details', { class: 'reasoning' }, h('summary', {}, 'Model reasoning'), h('div', { class: 'msg-text md' }, md(st.reasoning))) : null,
       st.textHidden ? h('p', { class: 'muted small' }, 'Agent messages hidden to keep the reading blind')
-        : st.text ? h('div', { class: 'tl-part' }, h('span', { class: 'tl-label' }, icon('history', { size: 13 }), 'Agent'), clampText(st.text, 3)) : null,
+        : st.text ? bubble('agent', clampText(st.text, 4)) : null,
       n ? h('div', { class: 'tl-part' }, ordersPlaced(st.orders)) : null,
       // The agent's searches of the procedure list are not part of a chart and are not shown.
-      (st.other || []).filter((o) => o.kind === 'exam').map((o) => h('div', { class: 'tl-part' }, h('span', { class: 'tl-label' }, 'Examination'), clampText(o.text, 3))),
+      (st.other || []).filter((o) => o.kind === 'exam').map((o) => bubble('result', clampText(o.text, 6, '', 'exam'), { label: 'Physical examination' })),
       st.finish && st.step ? (shownResults(st).length && !st.seen
         ? h('p', { class: 'tl-finish tl-finish-warn' }, icon('alert', { size: 14 }), 'Final diagnosis given before these results')
         : h('p', { class: 'tl-finish' }, icon('check', { size: 14 }), 'Final diagnosis given')) : null,
       resultsSection(st),
-      st.reply ? h('div', { class: 'tl-part' }, h('span', { class: 'tl-label' }, 'Patient'), clampText(st.reply, 3)) : null));
+      st.reply ? bubble('patient', clampText(st.reply, 4)) : null));
 }
 
 // ---------------------------------------------------------------- one workup as an encounter
@@ -210,7 +228,7 @@ export function encounterColumn(w, wk, { hideExam = false, advisor = false } = {
     h('details', { class: 'enc-sec', open: true },
       h('summary', { class: 'enc-sec-head' }, icon('history', { size: 15 }), h('h4', {}, 'History'), hist.toggle),
       advisor && (wk.historyReasoning || []).length ? h('details', { class: 'reasoning' }, h('summary', {}, 'Model reasoning during the history'),
-        (wk.historyReasoning || []).map((x) => h('p', { class: 'msg-text' }, x.text))) : null,
+        (wk.historyReasoning || []).map((x) => h('div', { class: 'msg-text md' }, md(x.text)))) : null,
       advisor && wk.reasoningRecorded === false ? h('p', { class: 'muted small' }, 'No model reasoning recorded') : null,
       hist.body),
     h('section', { class: 'enc-sec' },
@@ -219,7 +237,7 @@ export function encounterColumn(w, wk, { hideExam = false, advisor = false } = {
     h('section', { class: 'enc-sec enc-final' },
       h('div', { class: 'enc-sec-head' }, icon('diagnosis', { size: 15 }), h('h4', {}, 'Final diagnosis')),
       wk.final === null ? h('p', { class: 'muted small' }, 'Hidden to keep the reading blind')
-        : h('p', { class: 'final-dx' }, withAbbr(wk.final || ''))));
+        : h('p', { class: 'final-dx' }, inline(String(wk.final || '').replace(/^\s*\*\*(.*)\*\*\s*$/, '$1')))));
 }
 
 // ---------------------------------------------------------------- order line in the rating grid
